@@ -8,7 +8,8 @@ import ListRow from '../../components/ui/ListRow';
 import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import Thumbnail from '../../components/ui/Thumbnail';
 import Toast from '../../components/ui/Toast';
-import { getRegisteredKendra } from '../../data/mock/mockVanDhan';
+import { getKendra, getRegisteredKendra } from '../../data/mock/mockVanDhan';
+import type { VanDhanScreenProps } from '../../navigation/types';
 import theme from '../../theme';
 import { pillarMeta } from '../pillarMeta';
 import {
@@ -20,9 +21,11 @@ import {
   openPhone,
 } from './vanDhanFormat';
 
-// Shows the kendra the producer chose when registering for Van Dhan.
-export default function KendraInfo() {
-  const kendra = getRegisteredKendra();
+// Shows a kendra: the one a collection is going to when opened from CollectionSubmitted, otherwise the
+// one the producer chose when registering for Van Dhan.
+export default function KendraInfo({ route }: VanDhanScreenProps<'KendraInfo'>) {
+  const kendraId = route.params?.kendraId;
+  const kendra = kendraId ? getKendra(kendraId) : getRegisteredKendra();
   const [toast, setToast] = useState<string | null>(null);
 
   if (!kendra) {

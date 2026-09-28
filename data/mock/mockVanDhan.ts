@@ -76,6 +76,10 @@ export type CollectionType = 'bringing_now' | 'pre_logged';
 
 export type CollectionLogRequest = {
   type: CollectionType;
+  /** Where this collection is delivered — any kendra, not only the one chosen at registration. */
+  kendraId: string;
+  /** When a pre-logged collection will be delivered (required for `pre_logged`, null for `bringing_now`). */
+  deliveryDate: string | null;
   produceId: string;
   quantity: number;
   unit: ProduceUnit;
@@ -207,7 +211,7 @@ export const mockKendra: Kendra = {
   photoUrl: null,
 };
 
-/** Kendras a producer can register with. */
+/** Kendras a producer can register with, and deliver any collection to. */
 export const mockKendras: Kendra[] = [
   mockKendra,
   {
@@ -387,6 +391,9 @@ export function availablePickupDates(from = new Date()): string[] {
   );
 }
 
+/** Days a pre-logged collection can be delivered on: the same window as pickups, starting tomorrow. */
+export const availableDeliveryDates = availablePickupDates;
+
 /** Every village as a pickup address, keyed "district/village". */
 export function pickupAddressOptions(): { id: string; address: Address }[] {
   return mockDistricts.flatMap((district) =>
@@ -413,6 +420,8 @@ const collectionLogs: CollectionLog[] = [
   {
     id: 'CL-2025-0310',
     type: 'pre_logged',
+    kendraId: 'kendra-dimapur',
+    deliveryDate: daysAgo(9),
     produceId: 'wild-honey',
     quantity: 4,
     unit: 'kg',
@@ -423,6 +432,8 @@ const collectionLogs: CollectionLog[] = [
   {
     id: 'CL-2025-0311',
     type: 'bringing_now',
+    kendraId: 'kendra-kohima',
+    deliveryDate: null,
     produceId: 'broom-grass',
     quantity: 25,
     unit: 'kg',
@@ -436,12 +447,16 @@ export const getCollectionLogs = (): readonly CollectionLog[] => (registration.i
 
 export const getProduce = (id: string) => mockProduce.find((item) => item.id === id);
 
+export const getKendra = (id: string) => mockKendras.find((kendra) => kendra.id === id);
+
 export const getCollectionLog = (id: string) =>
   registration.isRegistered ? collectionLogs.find((log) => log.id === id) : undefined;
 
 export async function logCollection(request: CollectionLogRequest): Promise<CollectionLog> {
+  if (request.type === 'pre_logged' && !request.deliveryDate) throw new Error('Choose a delivery date.');
   const log: CollectionLog = {
     ...request,
+    deliveryDate: request.type === 'pre_logged' ? request.deliveryDate : null,
     id: `CL-2025-${String(COLLECTION_SEQUENCE_START + collectionLogs.length).padStart(4, '0')}`,
     loggedAt: new Date().toISOString(),
     cancelledAt: null,

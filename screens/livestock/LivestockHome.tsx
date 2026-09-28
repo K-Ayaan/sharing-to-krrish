@@ -15,10 +15,7 @@ import {
   acknowledgeAlert,
   getActiveAlerts,
   mockLivestockHome,
-  type Sex,
-  type Species,
   type StockItem,
-  type WeightBand,
 } from '../../data/mock/mockLivestock';
 import type { LivestockScreenProps } from '../../navigation/types';
 import theme from '../../theme';
@@ -32,15 +29,12 @@ import {
   speciesIcon,
   speciesName,
   weightName,
-  WEIGHT_ICON,
   type StockSort,
 } from './livestockFormat';
-import SelectSexSheet from './SelectSexSheet';
-import SelectSpeciesSheet from './SelectSpeciesSheet';
-import SelectWeightSheet from './SelectWeightSheet';
+import LivestockFiltersSheet, { NO_FILTERS, filterCount, type LivestockFilters } from './LivestockFiltersSheet';
 import SortSheet from './SortSheet';
 
-type FilterSheetName = 'species' | 'sex' | 'weight' | 'sort';
+type SheetName = 'filters' | 'sort';
 
 const { color } = theme.livestock;
 
@@ -55,11 +49,10 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
   const unreadNotificationCount = useUnreadNoticeCount();
   const [alerts, setAlerts] = useState(getActiveAlerts);
   const [query, setQuery] = useState('');
-  const [species, setSpecies] = useState<Species[]>([]);
-  const [sexes, setSexes] = useState<Sex[]>([]);
-  const [weights, setWeights] = useState<WeightBand[]>([]);
+  const [filters, setFilters] = useState<LivestockFilters>(NO_FILTERS);
+  const { species, sexes, weights } = filters;
   const [sort, setSort] = useState<StockSort>('availability');
-  const [sheet, setSheet] = useState<FilterSheetName | null>(null);
+  const [sheet, setSheet] = useState<SheetName | null>(null);
 
   const acknowledge = async (id: string) => {
     await acknowledgeAlert(id);
@@ -93,28 +86,22 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
     ...species.map((id) => ({
       key: `species-${id}`,
       label: speciesName(id),
-      sheet: 'species' as const,
-      remove: () => setSpecies((current) => without(current, id)),
+      remove: () => setFilters((current) => ({ ...current, species: without(current.species, id) })),
     })),
     ...sexes.map((id) => ({
       key: `sex-${id}`,
       label: sexName(id),
-      sheet: 'sex' as const,
-      remove: () => setSexes((current) => without(current, id)),
+      remove: () => setFilters((current) => ({ ...current, sexes: without(current.sexes, id) })),
     })),
     ...weights.map((id) => ({
       key: `weight-${id}`,
       label: weightName(id),
-      sheet: 'weight' as const,
-      remove: () => setWeights((current) => without(current, id)),
+      remove: () => setFilters((current) => ({ ...current, weights: without(current.weights, id) })),
     })),
   ];
 
-  const clearFilters = () => {
-    setSpecies([]);
-    setSexes([]);
-    setWeights([]);
-  };
+  const clearFilters = () => setFilters(NO_FILTERS);
+  const activeFilters = filterCount(filters);
 
   const closeSheet = () => setSheet(null);
 
@@ -165,30 +152,15 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
           variant="search"
         />
 
+        {/* One dropdown for every filter: species, sex and weight are sections of pills in one sheet. */}
         <View style={styles.chipRow}>
           <FilterChip
-            label={chipLabel('Species', species.length)}
-            icon={pillarMeta.livestock.icon}
+            label={chipLabel('Filters', activeFilters)}
+            icon="options-outline"
             iconColor={color.primary}
             trailingIcon="chevron-down"
-            selected={species.length > 0}
-            onPress={() => setSheet('species')}
-          />
-          <FilterChip
-            label={chipLabel('Sex', sexes.length)}
-            icon="female-outline"
-            iconColor={color.primary}
-            trailingIcon="chevron-down"
-            selected={sexes.length > 0}
-            onPress={() => setSheet('sex')}
-          />
-          <FilterChip
-            label={chipLabel('Weight', weights.length)}
-            icon={WEIGHT_ICON}
-            iconColor={color.primary}
-            trailingIcon="chevron-down"
-            selected={weights.length > 0}
-            onPress={() => setSheet('weight')}
+            selected={activeFilters > 0}
+            onPress={() => setSheet('filters')}
           />
         </View>
 
@@ -199,7 +171,7 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
                 key={chip.key}
                 label={chip.label}
                 selected
-                onPress={() => setSheet(chip.sheet)}
+                onPress={() => setSheet('filters')}
                 onRemove={chip.remove}
               />
             ))}
@@ -249,34 +221,16 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
         <TabBarSpacer />
       </ScrollView>
 
-      <SelectSpeciesSheet
-        visible={sheet === 'species'}
-        selected={species}
+      <LivestockFiltersSheet
+        visible={sheet === 'filters'}
+        value={filters}
         onApply={(next) => {
-          setSpecies(next);
-          closeSheet();
-        }}
-        onClose={closeSheet}
-      />
-      <SelectSexSheet
-        visible={sheet === 'sex'}
-        selected={sexes}
-        onApply={(next) => {
-          setSexes(next);
+          setFilters(next);
           closeSheet();
         }}
         onClose={closeSheet}
       />
       <SortSheet visible={sheet === 'sort'} selected={sort} onSelect={setSort} onClose={closeSheet} />
-      <SelectWeightSheet
-        visible={sheet === 'weight'}
-        selected={weights}
-        onApply={(next) => {
-          setWeights(next);
-          closeSheet();
-        }}
-        onClose={closeSheet}
-      />
     </View>
   );
 }

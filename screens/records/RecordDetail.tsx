@@ -22,7 +22,7 @@ import {
 } from '../../data/mock/mockVanDhan';
 import type { RecordsScreenProps } from '../../navigation/types';
 import theme from '../../theme';
-import { formatDate, formatDateTime } from '../formatDate';
+import { formatDate, formatDateTime, formatWeekdayDate } from '../formatDate';
 import { enquiryLabels, sexName, speciesIcon, speciesName, weightName } from '../livestock/livestockFormat';
 import { formatDateRange, requestSteps, urgencyLabel } from '../lpg/lpgFormat';
 import { formatPhone } from '../onboarding/formatPhone';
@@ -100,6 +100,9 @@ function recordContent(record: AppRecord, category: string): RecordContent {
           { icon: 'leaf', label: 'Produce', value: produceName(log.produceId) },
           { icon: 'cube-outline', label: 'Quantity', value: `${log.quantity} ${log.unit}` },
           { icon: 'car', label: 'Collection type', value: COLLECTION_TYPE_LABELS[log.type] },
+          ...(log.deliveryDate
+            ? [{ icon: 'calendar' as const, label: 'Delivery date', value: formatWeekdayDate(log.deliveryDate) }]
+            : []),
           { icon: 'calendar-outline', label: 'Submitted on', value: formatDateTime(log.loggedAt) },
           ...(log.cancelledAt
             ? [{ icon: 'close-circle' as const, label: 'Cancelled on', value: formatDateTime(log.cancelledAt) }]

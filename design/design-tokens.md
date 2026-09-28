@@ -101,8 +101,8 @@ Build these once as shared components — every screen reuses them, never redraw
   visually distinct from RunningBanner (different shape, not just different color)
 - `StatusPill` — small rounded label (Available / In progress / Delivered / Paid / Valid / KYC in progress)
 - `ListRow` — icon + title + optional subtitle + trailing chevron or status pill
-- `FilterChip` — pill-shaped, selected/unselected state, used in Livestock filters and Notices tabs
-- `BottomSheet` — used for produce detail (Van Dhan), select-species/sex/weight (Livestock filters)
+- `FilterChip` — pill-shaped, selected/unselected state, used in Livestock filters (the "Filters" dropdown and the pills in its sheet) and Notices tabs
+- `BottomSheet` — used for produce detail (Van Dhan), the single Livestock filter sheet (species / sex / weight sections of pills)
 - `TabBar` — Home / Services / Records / Notices / Ask Us, persistent across the app. A floating Liquid Glass
   pill over the screens: native iOS 26 Liquid Glass (`expo-glass-effect` `GlassView`, the see-through
   `clear` style with a faint white tint) where available, otherwise glassmorphism from

@@ -11,10 +11,10 @@ import StatusTracker, { type Step } from '../../components/ui/StatusTracker';
 import SuccessBadge from '../../components/ui/SuccessBadge';
 import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import Toast from '../../components/ui/Toast';
-import { getCollectionLog, getProduce, getRegisteredKendra } from '../../data/mock/mockVanDhan';
+import { getCollectionLog, getKendra, getProduce } from '../../data/mock/mockVanDhan';
 import type { VanDhanScreenProps } from '../../navigation/types';
 import theme from '../../theme';
-import { formatDateTime } from '../formatDate';
+import { formatDateTime, formatWeekdayDate } from '../formatDate';
 import { pillarMeta } from '../pillarMeta';
 import { useUnreadNoticeCount } from '../useUnreadNoticeCount';
 import { MAPS_UNAVAILABLE, dialectLabel, kendraMapQuery, openMaps, unitName } from './vanDhanFormat';
@@ -34,7 +34,8 @@ export default function CollectionSubmitted({ navigation, route }: VanDhanScreen
   const [toast, setToast] = useState<string | null>(null);
   const log = getCollectionLog(route.params.collectionId);
   const produce = log ? getProduce(log.produceId) : undefined;
-  const kendra = getRegisteredKendra();
+  // The kendra picked for this collection, which may differ from the registered one.
+  const kendra = log ? getKendra(log.kendraId) : undefined;
 
   const viewOnMap = async () => {
     if (kendra && !(await openMaps(kendraMapQuery(kendra)))) setToast(MAPS_UNAVAILABLE);
@@ -65,7 +66,9 @@ export default function CollectionSubmitted({ navigation, route }: VanDhanScreen
           <Text accessibilityRole="header" style={styles.title}>
             Collection submitted!
           </Text>
-          <Text style={styles.subtitle}>Now bring your produce to your Van Dhan Kendra.</Text>
+          <Text style={styles.subtitle}>
+            {kendra ? `Now bring your produce to ${kendra.name}.` : 'Now bring your produce to the kendra.'}
+          </Text>
         </View>
 
         {log ? (
@@ -99,11 +102,20 @@ export default function CollectionSubmitted({ navigation, route }: VanDhanScreen
             ) : null}
             <DetailRow
               stacked
-              divider={!!kendra}
+              divider={!!kendra || !!log.deliveryDate}
               icon="calendar-outline"
               label="Submitted on"
               value={formatDateTime(log.loggedAt)}
             />
+            {log.deliveryDate ? (
+              <DetailRow
+                stacked
+                divider={!!kendra}
+                icon="calendar"
+                label="Delivery date"
+                value={formatWeekdayDate(log.deliveryDate)}
+              />
+            ) : null}
             {kendra ? (
               <DetailRow
                 stacked
@@ -134,7 +146,7 @@ export default function CollectionSubmitted({ navigation, route }: VanDhanScreen
           <Button
             label="Kendra details"
             icon="location"
-            onPress={() => navigation.navigate('KendraInfo')}
+            onPress={() => navigation.navigate('KendraInfo', log ? { kendraId: log.kendraId } : undefined)}
             style={styles.action}
           />
           <Button

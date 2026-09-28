@@ -9,18 +9,12 @@ import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
 import SelectField from '../../components/ui/SelectField';
 import ServiceHeader from '../../components/ui/ServiceHeader';
 import TabBarSpacer from '../../components/ui/TabBarSpacer';
-import { mockKendras, mockProduce, registerForVanDhan } from '../../data/mock/mockVanDhan';
+import { mockProduce, registerForVanDhan } from '../../data/mock/mockVanDhan';
 import type { VanDhanScreenProps } from '../../navigation/types';
 import theme from '../../theme';
 import { pillarMeta } from '../pillarMeta';
 import { useUnreadNoticeCount } from '../useUnreadNoticeCount';
-import { dialectLabel } from './vanDhanFormat';
-
-const kendraOptions = mockKendras.map((kendra) => ({
-  id: kendra.id,
-  name: kendra.name,
-  description: `${kendra.address.line1}, ${kendra.address.line2}`,
-}));
+import { dialectLabel, kendraOptions } from './vanDhanFormat';
 
 const { color } = theme.vandhan;
 

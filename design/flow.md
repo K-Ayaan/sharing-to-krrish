@@ -161,10 +161,12 @@ VanDhanHome (registered)
  ├── notification bell → NoticesTab:Notices
  ├── (produce list row tap) → ProduceDetailSheet (modal/bottom sheet, not a push)
  ├── "Call price line" → Linking.openURL(`tel:${priceLineNumber}`) — no in-app screen
- ├── "Log a collection" → LogCollection
+ ├── "Log a collection" → LogCollection. Each collection picks its own kendra ("Deliver to", starting
+ │     │     on the registered kendra; any kendra in `mockKendras` can be chosen) and stores its `kendraId`.
+ │     │     "Pre-logging for later" also requires a "Delivery date" (same 7-day window as pickups)
  │     └── "Submit collection" → CollectionSubmitted (replace, with the new `collectionId`); Back → VanDhanHome
- │           ├── "View on map" → Linking.openURL(Apple Maps URL) for the registered kendra
- │           ├── "Kendra details" → KendraInfo
+ │           ├── "View on map" → Linking.openURL(Apple Maps URL) for the collection's kendra
+ │           ├── "Kendra details" → KendraInfo (`kendraId` of the collection; without it, the registered kendra)
  │           └── "Log another" → LogCollection (replace)
  ├── "Schedule a pickup" → SchedulePickup
  │     └── "Request pickup" → PickupDetails (replace, with the new `pickupId`). The form asks for
@@ -191,7 +193,8 @@ every section: rates, the price line, Log a collection, Schedule a pickup, picku
 chosen kendra and grievances, plus Van Dhan records. "Registered as" on Home reads "Van Dhan Producer". Mock: starts unregistered on every
 launch (`VAN_DHAN_REGISTERED_AT_LAUNCH`). There is no reference image for this screen yet.
 
-### LivestockStack — matches `LivestockHome.png`, `SelectSpeciesSheet.png`, `SelectSexSheet.png`, `SelectWeightSheet.png`, `StockDetails.png` (canonical: buyer-only)
+### LivestockStack — matches `LivestockHome.png`, `SelectSpeciesSheet.png`, `SelectSexSheet.png`, `SelectWeightSheet.png`, `StockDetails.png` (canonical: buyer-only). **Deviation (user's decision):** the three per-filter sheets in
+`SelectSpeciesSheet.png` / `SelectSexSheet.png` / `SelectWeightSheet.png` are one `LivestockFiltersSheet`.
 
 ```
 The whole stack is wrapped in `<AppearanceProvider appearance="livestock">` (rose on warm cream,
@@ -200,10 +203,10 @@ reference images were supplied as one composite and cropped into the per-screen 
 
 LivestockHome (buyer browse)
  ├── notification bell (header right) → NoticesTab:Notices
- ├── "Species" / "Sex" / "Weight" filter chips → SelectSpeciesSheet / SelectSexSheet /
- │     SelectWeightSheet (modal, still multi-select, drawn with round marks as in the redesign;
- │     "Done" applies and closes)
- │     └── selected values show as removable chips on LivestockHome
+ ├── one "Filters" dropdown chip → LivestockFiltersSheet (modal): Species, Sex and Weight sections, each
+ │     a wrap of toggle pills; any number of pills in any section at once; "Clear all" resets the draft;
+ │     "Done" applies everything and closes, × or the backdrop discards
+ │     └── selected values show as removable chips on LivestockHome; tapping one reopens the sheet
  ├── "Sort by" chip → SortSheet (Availability — default, most first / Recently updated /
  │     Weight light to heavy; one choice, applied on tap)
  ├── (stock card tap) → StockDetails (`stockId`)

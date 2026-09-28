@@ -115,13 +115,15 @@ first. For LPG, any 10–17 digit LPG ID with a 5–10 digit consumer number reg
 - [ ] With the keyboard open, the focused field and its submit button stay visible on LogCollection, SchedulePickup, EnterBookingReference and ComplaintDetails
 - [ ] The LogCollection note and ComplaintDetails description fields start about three lines tall and grow as you type; ComplaintDetails shows a live "n/500" counter
 - [ ] LogCollection: "Submit collection" opens "Collection submitted!" with the new collection ID, produce, quantity, note, time and your kendra; Back goes to VanDhanHome (not the form), and the log appears under Records → Van Dhan
+- [ ] Log a collection: choosing "Pre-logging for later" shows a required "Delivery date" (next 7 days); Submit stays disabled until one is picked, and switching back to "I'm bringing this now" hides it. The date then shows on Collection submitted and in My Records
+- [ ] Log a collection: "Deliver to" starts on the registered kendra; pick a different one, submit, and Collection submitted, "View on map" and "Kendra details" all show the kendra you picked (VanDhanHome's kendra card still shows the registered one)
 - [ ] Collection submitted: "View on map" opens Apple Maps at the kendra; "Kendra details" opens KendraInfo; "Log another" opens an empty form, and Back from it returns to VanDhanHome
 - [ ] SchedulePickup: "Request pickup" stays disabled until produce, a quantity above 0, address and date are set; it opens PickupDetails for the new pickup (showing that produce and quantity); Back goes to VanDhanHome, not back into the form
 - [ ] PickupDetails: the produce row opens the produce sheet; the address row opens Apple Maps; the contact row starts a call
 - [ ] Van Dhan screens are green on a cream page with leaves/hills; the tab bar's Services tab is green while in Van Dhan and blue again elsewhere; the price-line card stays blue
 - [ ] Livestock screens are rose on a cream page with pink leaves/hills; the Services tab is rose while in Livestock; the "MARCOFED livestock is subject to…" banner stays blue and the movement-ban card stays red
 - [ ] LivestockHome: results default to "Sort by: Availability" (most available first); the sort sheet switches to Recently updated or Weight (light to heavy) and the label follows
-- [ ] Livestock filter sheets show round marks and still allow several values per filter; stock cards and the species sheet show animal icons (goat keeps the paw)
+- [ ] Livestock has one "Filters" dropdown: its sheet shows Species, Sex and Weight sections of pills, several pills can be on in several sections at once, and "Done" applies them all together (× discards); stock cards and the species pills show animal icons (goat keeps the paw)
 - [ ] Van Dhan registration: the kendra sheet lists 5 kendras with addresses; tapping one only marks it, and "Select kendra" confirms; every produce row has a checkbox
 - [ ] EnterBookingReference: lowercase input is accepted and shown uppercase; "Continue" opens RequestStatus; Back goes to LpgHome, not back into the form
 - [ ] ComplaintDetails: from RequestStatus the booking reference is prefilled; the category can be changed in place; "Submit complaint" needs a description and a valid 10-digit contact number (prefilled from the profile); an invalid optional reference shows an error
@@ -160,7 +162,7 @@ first. For LPG, any 10–17 digit LPG ID with a 5–10 digit consumer number reg
 
 - [ ] Bottom sheets close when dragged down past about 80pt or when the dimmed backdrop is tapped; a short drag snaps back open
 - [ ] Livestock filter sheets: choices only apply after "Done"; closing with × or the backdrop discards them
-- [ ] An applied Livestock filter chip: tapping its × removes only that value without opening a sheet; tapping the chip itself reopens its sheet
+- [ ] An applied Livestock filter chip: tapping its × removes only that value without opening a sheet; tapping the chip itself reopens the Filters sheet
 - [ ] "Clear all" on LivestockHome removes every applied filter and the result count returns to the full list
 - [ ] ComplaintDetails: tapping "Change" returns to ComplaintCategory with the earlier choice still selected
 - [ ] Notices: pulling down shows a spinner for about a second and then updates the "Last updated" time
@@ -201,7 +203,7 @@ first. For LPG, any 10–17 digit LPG ID with a 5–10 digit consumer number reg
 - [ ] An unread notice row is announced as "Unread, <title>, <summary>"; a read row does not say "unread"
 - [ ] Each step in the "Call IOCL" sheet is announced once as "Step N: …", never as "Profile N"
 - [ ] The two collection-type cards in LogCollection are announced as radio buttons with their selected state
-- [ ] Rows in the Livestock filter sheets announce whether they're selected, and an applied filter chip's × is announced as "Remove <value>"
+- [ ] Pills in the Livestock Filters sheet announce whether they're selected, and an applied filter chip's × is announced as "Remove <value>"
 - [ ] The bell is announced as "Notifications, N unread" when there are unread notices
 - [ ] Decorative icons (icon circles, thumbnail fallbacks) are not focused as separate elements
 - [ ] Each reason in the "Why do we need this?" sheet is read as one element with its title and description

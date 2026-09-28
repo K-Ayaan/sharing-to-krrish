@@ -11,11 +11,21 @@ import type {
   ProduceUnit,
   Trend,
 } from '../../data/mock/mockVanDhan';
+import { mockKendras } from '../../data/mock/mockVanDhan';
 import { formatDateTime, formatShortDate, formatTime } from '../formatDate';
 
 export { CALL_UNAVAILABLE, MAPS_UNAVAILABLE, formatPhoneDisplay, openMaps, openPhone } from '../contact';
 
 type IconName = keyof typeof Ionicons.glyphMap;
+
+// ---- Kendras
+
+/** Kendra picker options (registration and LogCollection): name over its address. */
+export const kendraOptions = mockKendras.map((kendra) => ({
+  id: kendra.id,
+  name: kendra.name,
+  description: `${kendra.address.line1}, ${kendra.address.line2}`,
+}));
 
 // ---- Produce
 

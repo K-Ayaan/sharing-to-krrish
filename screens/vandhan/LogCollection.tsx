@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -8,6 +8,8 @@ import SelectField from '../../components/ui/SelectField';
 import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import TextField from '../../components/ui/TextField';
 import {
+  availableDeliveryDates,
+  getRegisteredKendra,
   logCollection,
   mockProduce,
   produceUnits,
@@ -16,6 +18,8 @@ import {
 } from '../../data/mock/mockVanDhan';
 import type { VanDhanScreenProps } from '../../navigation/types';
 import theme from '../../theme';
+import { formatWeekdayDate } from '../formatDate';
+import { kendraOptions } from './vanDhanFormat';
 
 const NOTE_MAX_LENGTH = 280;
 
@@ -23,6 +27,10 @@ const produceOptions = mockProduce.map((item) => ({ id: item.id, name: item.name
 
 export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCollection'>) {
   const [type, setType] = useState<CollectionType>('bringing_now');
+  const dates = useMemo(() => availableDeliveryDates(), []);
+  const [deliveryDate, setDeliveryDate] = useState<string>();
+  // Starts on the kendra chosen at registration, but each collection can go to any kendra.
+  const [kendraId, setKendraId] = useState<string | undefined>(() => getRegisteredKendra()?.id);
   const [produceId, setProduceId] = useState<string>();
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState<ProduceUnit>('kg');
@@ -31,7 +39,9 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
 
   const amount = Number(quantity.replace(',', '.'));
   const quantityValid = quantity.trim() !== '' && Number.isFinite(amount) && amount > 0;
-  const canSubmit = !!produceId && quantityValid && !submitting;
+  // Pre-logging for later needs to say when; bringing it now doesn't.
+  const dateValid = type === 'bringing_now' || !!deliveryDate;
+  const canSubmit = !!kendraId && dateValid && !!produceId && quantityValid && !submitting;
 
   const selectProduce = (id: string) => {
     setProduceId(id);
@@ -45,10 +55,18 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
   };
 
   const handleSubmit = async () => {
-    if (!produceId || !quantityValid || submitting) return;
+    if (!kendraId || !dateValid || !produceId || !quantityValid || submitting) return;
     setSubmitting(true);
     try {
-      const log = await logCollection({ type, produceId, quantity: amount, unit, note: note.trim() || null });
+      const log = await logCollection({
+        type,
+        kendraId,
+        deliveryDate: type === 'pre_logged' ? (deliveryDate ?? null) : null,
+        produceId,
+        quantity: amount,
+        unit,
+        note: note.trim() || null,
+      });
       // Completing the form replaces it, so back from the confirmation returns to VanDhanHome.
       navigation.replace('CollectionSubmitted', { collectionId: log.id });
     } finally {
@@ -85,10 +103,41 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
             onPress={() => setType('pre_logged')}
           />
         </View>
+        {type === 'pre_logged' ? (
+          <SelectField
+            icon="calendar-outline"
+            iconTinted
+            label="Delivery date"
+            onSelect={setDeliveryDate}
+            options={dates.map((iso) => ({ id: iso, name: formatWeekdayDate(iso) }))}
+            placeholder="Select date"
+            required
+            selectedId={deliveryDate}
+            sheetTitle="Delivery date"
+          />
+        ) : null}
       </Card>
 
       <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>2. Produce details</Text>
+        <Text style={styles.sectionTitle}>2. Van Dhan Kendra</Text>
+        <SelectField
+          icon="location"
+          iconTinted
+          label="Deliver to"
+          onSelect={setKendraId}
+          options={kendraOptions}
+          placeholder="Select kendra"
+          required
+          selectedId={kendraId}
+          sheetTitle="Select kendra"
+          sheetSubtitle="Choose the Van Dhan Kendra where you will deliver this collection."
+          optionIcon="location"
+          confirmLabel="Select kendra"
+        />
+      </Card>
+
+      <Card style={styles.section}>
+        <Text style={styles.sectionTitle}>3. Produce details</Text>
         <SelectField
           icon="leaf"
           iconTinted
@@ -127,7 +176,7 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
       </Card>
 
       <Card style={styles.section}>
-        <Text style={styles.sectionTitle}>3. Additional information (optional)</Text>
+        <Text style={styles.sectionTitle}>4. Additional information (optional)</Text>
         <TextField
           accessibilityLabel="Note"
           icon="create-outline"

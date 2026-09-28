@@ -54,7 +54,8 @@ export type VanDhanStackParamList = {
   CollectionSubmitted: { collectionId: string };
   SchedulePickup: undefined;
   PickupDetails: { pickupId: string };
-  KendraInfo: undefined;
+  // Omitted kendraId shows the registered kendra (VanDhanHome); CollectionSubmitted passes the collection's.
+  KendraInfo: { kendraId?: string } | undefined;
   GrievanceStatus: undefined;
 };
 
