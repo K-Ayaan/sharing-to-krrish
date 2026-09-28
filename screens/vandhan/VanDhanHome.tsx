@@ -1,6 +1,6 @@
 import type { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -8,15 +8,24 @@ import FilterChip from '../../components/ui/FilterChip';
 import IconButton from '../../components/ui/IconButton';
 import ListRow from '../../components/ui/ListRow';
 import RateRow from '../../components/ui/RateRow';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
+import ServiceHeader from '../../components/ui/ServiceHeader';
 import StatusPill from '../../components/ui/StatusPill';
 import StatusTracker from '../../components/ui/StatusTracker';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import TextField from '../../components/ui/TextField';
-import Thumbnail from '../../components/ui/Thumbnail';
 import Toast from '../../components/ui/Toast';
-import { getCurrentPickup, mockVanDhanHome, type Produce } from '../../data/mock/mockVanDhan';
+import {
+  getActiveGrievance,
+  getCurrentPickup,
+  getRegisteredKendra,
+  getVanDhanRegistration,
+  mockVanDhanHome,
+  type Produce,
+} from '../../data/mock/mockVanDhan';
 import type { VanDhanScreenProps } from '../../navigation/types';
 import theme from '../../theme';
-import { formatDate, isToday } from '../formatDate';
+import { formatDate } from '../formatDate';
 import { pillarMeta } from '../pillarMeta';
 import { useUnreadNoticeCount } from '../useUnreadNoticeCount';
 import ProduceDetailSheet from './ProduceDetailSheet';
@@ -31,64 +40,61 @@ import {
 } from './vanDhanFormat';
 
 type IconName = keyof typeof Ionicons.glyphMap;
-type RateFilter = 'all' | 'up' | 'down' | 'today';
+type RateFilter = 'all' | 'up' | 'down' | 'recent';
+
+/** "Recently updated" = a rate changed within this many days. */
+const RECENT_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const FILTERS: { id: RateFilter; label: string; icon?: IconName; iconColor?: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'up', label: 'Trending up', icon: 'trending-up', iconColor: theme.color.success },
   { id: 'down', label: 'Trending down', icon: 'trending-down', iconColor: theme.color.danger },
-  { id: 'today', label: 'Updated today', icon: 'time-outline' },
+  { id: 'recent', label: 'Recently updated', icon: 'time-outline' },
 ];
 
 const CONFIRMATION_MESSAGES = {
-  collection_logged: 'Collection logged',
+  registered: "You're registered for Van Dhan",
 } as const;
+
+const { color } = theme.vandhan;
 
 // Unicode combining diacritical marks (U+0300–U+036F), stripped after NFD
 // decomposition so "tsungri" matches "Tsüngri".
-const COMBINING_MARKS = new RegExp(
-  `[${String.fromCharCode(0x300)}-${String.fromCharCode(0x36f)}]`,
-  'g'
-);
+const COMBINING_MARKS = new RegExp(`[${String.fromCharCode(0x300)}-${String.fromCharCode(0x36f)}]`, 'g');
 
 const normalize = (text: string) => text.normalize('NFD').replace(COMBINING_MARKS, '').toLowerCase();
 
 function matchesFilters(produce: Produce, query: string, filter: RateFilter) {
   if (filter === 'up' && produce.trend !== 'up') return false;
   if (filter === 'down' && produce.trend !== 'down') return false;
-  if (filter === 'today' && !isToday(produce.updatedAt)) return false;
+  if (filter === 'recent' && Date.now() - Date.parse(produce.updatedAt) > RECENT_DAYS * DAY_MS) return false;
   if (!query) return true;
   return [produce.name, produce.dialect.name, produce.dialect.language].some((field) =>
-    normalize(field).includes(query)
+    normalize(field).includes(query),
   );
 }
 
 export default function VanDhanHome({ navigation, route }: VanDhanScreenProps<'VanDhanHome'>) {
-  const { tagline, priceLine, produce, kendra, activeGrievance } = mockVanDhanHome;
+  const { priceLine, produce } = mockVanDhanHome;
   const unreadNotificationCount = useUnreadNoticeCount();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<RateFilter>('all');
   const [selected, setSelected] = useState<Produce | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Pillar-home rule (flow.md): native large-title header with a visible back
-  // chevron to Services; the bell lives in the header instead of the content.
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <IconButton
-          icon="notifications-outline"
-          badgeCount={unreadNotificationCount}
-          accessibilityLabel="Notifications"
-          onPress={() => navigation.navigate('NoticesTab', { screen: 'Notices', pop: true })}
-        />
-      ),
-    });
-  }, [navigation, unreadNotificationCount]);
-
   // Re-render on focus so a pickup requested in SchedulePickup shows here on return.
   useIsFocused();
+  const registration = getVanDhanRegistration();
   const pickup = getCurrentPickup();
+  const kendra = getRegisteredKendra();
+  const activeGrievance = getActiveGrievance();
+
+  // Registration gate (flow.md): the Services card routes unregistered users straight to
+  // VanDhanRegistration; any other way in (Home, Records) is redirected here instead.
+  useEffect(() => {
+    if (!registration.isRegistered) navigation.replace('VanDhanRegistration');
+  }, [registration.isRegistered, navigation]);
 
   const confirmation = route.params?.confirmation;
   useEffect(() => {
@@ -102,29 +108,42 @@ export default function VanDhanHome({ navigation, route }: VanDhanScreenProps<'V
     return produce.filter((item) => matchesFilters(item, normalizedQuery, filter));
   }, [produce, query, filter]);
 
+  if (!registration.isRegistered) {
+    // Blank for the instant before the redirect lands.
+    return <View style={styles.screen} />;
+  }
+
   const callPriceLine = async () => {
     if (!(await openPhone(priceLine.phone))) setToast(CALL_UNAVAILABLE);
   };
 
   return (
     <View style={styles.screen}>
+      <ScenicBackdrop />
+      <ServiceHeader
+        title={pillarMeta.vandhan.label}
+        icon={pillarMeta.vandhan.icon}
+        iconColor={pillarMeta.vandhan.colors.icon}
+        tint={pillarMeta.vandhan.colors.tint}
+        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+        trailing={
+          <IconButton
+            icon="notifications-outline"
+            badgeCount={unreadNotificationCount}
+            accessibilityLabel="Notifications"
+            tint={color.surface}
+            onPress={() => navigation.navigate('NoticesTab', { screen: 'Notices', pop: true })}
+          />
+        }
+      />
       <ScrollView
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.taglineRow}>
-          <Text style={[styles.secondary, styles.flex]}>{tagline}</Text>
-          <Thumbnail
-            uri={null}
-            fallbackIcon={pillarMeta.vandhan.icon}
-            iconColor={pillarMeta.vandhan.colors.icon}
-            tint={pillarMeta.vandhan.colors.tint}
-          />
-        </View>
-
-        <Card tone="info" padded={false}>
+        {/* Stays the app's blue in the green redesign, as in VanDhanHome.png. */}
+        <Card padded={false} style={styles.priceLine}>
           <ListRow
             icon="call"
             iconColor={theme.color.background}
@@ -165,29 +184,32 @@ export default function VanDhanHome({ navigation, route }: VanDhanScreenProps<'V
           ))}
         </ScrollView>
 
-        <Card padded={false}>
+        <View style={styles.rates}>
           {visibleProduce.length === 0 ? (
-            <Text style={styles.empty}>No produce matches your search.</Text>
+            <Card>
+              <Text style={styles.empty}>No produce matches your search.</Text>
+            </Card>
           ) : (
-            visibleProduce.map((item, index) => (
-              <RateRow
-                key={item.id}
-                title={item.name}
-                subtitle={dialectLabel(item)}
-                price={formatRate(item.rate.amount)}
-                unit={unitLabel(item.rate.unit)}
-                trend={item.trend}
-                updatedLabel={formatDate(item.updatedAt)}
-                imageUrl={item.imageUrl}
-                fallbackIcon={pillarMeta.vandhan.icon}
-                fallbackIconColor={pillarMeta.vandhan.colors.icon}
-                fallbackTint={pillarMeta.vandhan.colors.tint}
-                divider={index < visibleProduce.length - 1}
-                onPress={() => setSelected(item)}
-              />
+            visibleProduce.map((item) => (
+              <Card key={item.id} padded={false} elevated>
+                <RateRow
+                  key={item.id}
+                  title={item.name}
+                  subtitle={dialectLabel(item)}
+                  price={formatRate(item.rate.amount)}
+                  unit={unitLabel(item.rate.unit)}
+                  trend={item.trend}
+                  updatedLabel={formatDate(item.updatedAt)}
+                  imageUrl={item.imageUrl}
+                  fallbackIcon={pillarMeta.vandhan.icon}
+                  fallbackIconColor={pillarMeta.vandhan.colors.icon}
+                  fallbackTint={pillarMeta.vandhan.colors.tint}
+                  onPress={() => setSelected(item)}
+                />
+              </Card>
             ))
           )}
-        </Card>
+        </View>
 
         <View style={styles.actions}>
           <Button
@@ -213,6 +235,7 @@ export default function VanDhanHome({ navigation, route }: VanDhanScreenProps<'V
               <Button
                 label="View details"
                 variant="text"
+                trailingIcon="chevron-forward"
                 onPress={() => navigation.navigate('PickupDetails', { pickupId: pickup.id })}
               />
             </View>
@@ -220,17 +243,17 @@ export default function VanDhanHome({ navigation, route }: VanDhanScreenProps<'V
           </Card>
         ) : null}
 
-        <Card padded={false}>
-          <Text style={[styles.cardTitle, styles.cardTitlePadded]}>Your Van Dhan Kendra</Text>
-          <ListRow
-            icon="location"
-            iconColor={theme.color.textSecondary}
-            iconBackground={theme.color.surfaceMuted}
-            title={kendra.name}
-            subtitle={`${kendra.address.line1}, ${kendra.address.line2}`}
-            onPress={() => navigation.navigate('KendraInfo')}
-          />
-        </Card>
+        {kendra ? (
+          <Card padded={false}>
+            <Text style={[styles.cardTitle, styles.cardTitlePadded]}>Your Van Dhan Kendra</Text>
+            <ListRow
+              icon="location"
+              title={kendra.name}
+              subtitle={`${kendra.address.line1}, ${kendra.address.line2}`}
+              onPress={() => navigation.navigate('KendraInfo')}
+            />
+          </Card>
+        ) : null}
 
         {activeGrievance ? (
           <Card padded={false}>
@@ -251,6 +274,7 @@ export default function VanDhanHome({ navigation, route }: VanDhanScreenProps<'V
             />
           </Card>
         ) : null}
+        <TabBarSpacer />
       </ScrollView>
 
       <ProduceDetailSheet produce={selected} onClose={() => setSelected(null)} />
@@ -262,23 +286,17 @@ export default function VanDhanHome({ navigation, route }: VanDhanScreenProps<'V
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: color.background,
+  },
+  priceLine: {
+    backgroundColor: theme.color.primaryTint,
+  },
+  rates: {
+    gap: theme.space.s,
   },
   content: {
     padding: theme.space.m,
     gap: theme.space.m,
-  },
-  flex: {
-    flex: 1,
-  },
-  taglineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.space.m,
-  },
-  secondary: {
-    ...theme.type.body,
-    color: theme.color.textSecondary,
   },
   tinted: {
     backgroundColor: theme.color.primaryTint,

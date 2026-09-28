@@ -2,8 +2,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import theme from '../../theme';
+import { useAppearance } from './Appearance';
 
-export type StatusTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+export type StatusTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'complete';
 
 export type StatusPillProps = {
   label: string;
@@ -20,10 +21,12 @@ const TONES: Record<StatusTone, { fg: string; bg: string }> = {
   danger: { fg: theme.color.danger, bg: theme.color.dangerTint },
   info: { fg: theme.color.primary, bg: theme.color.primaryTint },
   neutral: { fg: theme.color.textSecondary, bg: theme.color.surfaceMuted },
+  complete: { fg: theme.color.complete, bg: theme.color.completeTint },
 };
 
 export default function StatusPill({ label, tone = 'neutral', icon, iconColor, style }: StatusPillProps) {
-  const { fg, bg } = TONES[tone];
+  const { color } = useAppearance();
+  const { fg, bg } = tone === 'info' ? { fg: color.primary, bg: color.primaryTint } : TONES[tone];
 
   return (
     <View style={[styles.pill, { backgroundColor: bg }, style]}>

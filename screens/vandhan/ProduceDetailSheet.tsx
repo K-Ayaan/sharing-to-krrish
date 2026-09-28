@@ -77,7 +77,7 @@ export default function ProduceDetailSheet({ produce, onClose }: ProduceDetailSh
           </View>
 
           <Card tone="info" style={styles.row}>
-            <Avatar icon="information" iconColor={theme.color.background} tint={theme.color.primary} />
+            <Avatar icon="information" iconColor={theme.color.background} tint={theme.vandhan.color.primary} />
             <Text style={styles.info}>
               Rates are set by the government and may be revised periodically. Please call the price
               line for the latest information.

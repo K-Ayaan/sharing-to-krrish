@@ -2,6 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import theme from '../../theme';
+import { useAppearance } from './Appearance';
 
 export type CheckboxProps = {
   checked: boolean;
@@ -12,8 +13,30 @@ export type CheckboxProps = {
 };
 
 const BOX_SIZE = theme.space.l + theme.space.xs;
+const SQUARE_RADIUS = theme.space.s - theme.space.xs / 2;
+
+/** The box alone — round by default, a rounded square in the onboarding appearance. */
+export function CheckboxBox({ checked }: { checked: boolean }) {
+  const { appearance, color } = useAppearance();
+  return (
+    <View
+      style={[
+        styles.box,
+        appearance === 'onboarding' && styles.square,
+        checked
+          ? { backgroundColor: color.primary }
+          : [styles.boxUnchecked, { backgroundColor: color.surface, borderColor: color.border }],
+      ]}
+    >
+      {checked ? (
+        <Ionicons name="checkmark" size={theme.type.headline.fontSize} color={theme.color.background} />
+      ) : null}
+    </View>
+  );
+}
 
 export default function Checkbox({ checked, onChange, label, disabled = false, style }: CheckboxProps) {
+  const { color } = useAppearance();
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -22,12 +45,8 @@ export default function Checkbox({ checked, onChange, label, disabled = false, s
       onPress={() => onChange(!checked)}
       style={[styles.row, disabled && styles.disabled, style]}
     >
-      <View style={[styles.box, checked ? styles.boxChecked : styles.boxUnchecked]}>
-        {checked ? (
-          <Ionicons name="checkmark" size={theme.type.headline.fontSize} color={theme.color.background} />
-        ) : null}
-      </View>
-      <Text style={styles.label}>{label}</Text>
+      <CheckboxBox checked={checked} />
+      <Text style={[styles.label, { color: color.textSecondary }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -48,17 +67,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  boxChecked: {
-    backgroundColor: theme.color.primary,
+  square: {
+    borderRadius: SQUARE_RADIUS,
   },
   boxUnchecked: {
-    backgroundColor: theme.color.surface,
     borderWidth: theme.space.xs / 2,
-    borderColor: theme.color.border,
   },
   label: {
     ...theme.type.body,
-    color: theme.color.textSecondary,
     flex: 1,
   },
 });

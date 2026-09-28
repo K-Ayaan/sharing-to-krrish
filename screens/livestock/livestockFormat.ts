@@ -1,4 +1,5 @@
 import type { Ionicons } from '@expo/vector-icons';
+import type { AppIconName } from '../../components/ui/AppIcon';
 import {
   sexOptions,
   speciesOptions,
@@ -20,14 +21,15 @@ export const speciesName = (id: Species) => nameOf(speciesOptions, id);
 export const sexName = (id: Sex) => nameOf(sexOptions, id);
 export const weightName = (id: WeightBand) => nameOf(weightBandOptions, id);
 
-// Ionicons has no per-animal glyphs: paw for mammals, egg for poultry.
-export const speciesIcon: Record<Species, IconName> = {
-  pig: 'paw',
-  cattle: 'paw',
+// Animal glyphs from MaterialCommunityIcons (Ionicons has none). No bundled icon set has a goat or a
+// mithun: goat keeps the paw, and mithun — a bovine — uses the cow.
+export const speciesIcon: Record<Species, AppIconName> = {
+  pig: 'mci:pig-variant',
+  cattle: 'mci:cow',
   goat: 'paw',
-  sheep: 'paw',
-  poultry: 'egg',
-  mithun: 'paw',
+  sheep: 'mci:sheep',
+  poultry: 'mci:bird',
+  mithun: 'mci:cow',
 };
 
 export const sexIcon: Record<Sex, IconName> = {
@@ -36,7 +38,32 @@ export const sexIcon: Record<Sex, IconName> = {
   unspecified: 'remove',
 };
 
-export const WEIGHT_ICON: IconName = 'scale-outline';
+export const WEIGHT_ICON: AppIconName = 'mci:weight-kilogram';
+
+// ---- Sorting (LivestockHome's "Sort by")
+
+export type StockSort = 'availability' | 'recent' | 'weight';
+
+export const sortOptions: { id: StockSort; name: string }[] = [
+  { id: 'availability', name: 'Availability' },
+  { id: 'recent', name: 'Recently updated' },
+  { id: 'weight', name: 'Weight (light to heavy)' },
+];
+
+const WEIGHT_ORDER = weightBandOptions.map((option) => option.id);
+
+/** Most available first; newest update first; lightest weight band first. Ties keep list order. */
+export function sortStock(items: StockItem[], sort: StockSort): StockItem[] {
+  const sorted = [...items];
+  switch (sort) {
+    case 'availability':
+      return sorted.sort((a, b) => b.quantityAvailable - a.quantityAvailable);
+    case 'recent':
+      return sorted.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    case 'weight':
+      return sorted.sort((a, b) => WEIGHT_ORDER.indexOf(a.weightBand) - WEIGHT_ORDER.indexOf(b.weightBand));
+  }
+}
 
 export const quantityLabel = (count: number) => `${count} available`;
 

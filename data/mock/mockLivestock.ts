@@ -64,7 +64,6 @@ export type MovementAlert = {
 };
 
 export type LivestockHomeResponse = {
-  tagline: string;
   banner: { id: string; text: string };
   stock: StockItem[];
 };
@@ -113,7 +112,6 @@ export const mockStock: StockItem[] = [
 ];
 
 export const mockLivestockHome: LivestockHomeResponse = {
-  tagline: 'Current MARCOFED stock you can enquire about.',
   banner: {
     id: 'ann-livestock-guidelines',
     text: 'MARCOFED livestock is subject to stock availability and movement guidelines.',

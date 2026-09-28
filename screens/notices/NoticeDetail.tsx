@@ -1,17 +1,26 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import AudioPlayer from '../../components/ui/AudioPlayer';
-import Avatar from '../../components/ui/Avatar';
 import Card from '../../components/ui/Card';
+import IconButton from '../../components/ui/IconButton';
 import ListRow from '../../components/ui/ListRow';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
 import StatusPill from '../../components/ui/StatusPill';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
+import Thumbnail from '../../components/ui/Thumbnail';
 import Toast from '../../components/ui/Toast';
-import { getNotice, markNoticeRead } from '../../data/mock/mockNotices';
+import { getNotice, markNoticeRead, type NoticePillar } from '../../data/mock/mockNotices';
 import type { NoticesScreenProps } from '../../navigation/types';
 import theme from '../../theme';
 import { formatDateTime } from '../formatDate';
 import { formatFileSize, noticePillarMeta } from './noticeFormat';
+
+// Leaves in the notice's pillar colours (redesign batch 7); the page itself stays the app's blue.
+const BACKDROP_TONE: Record<NoticePillar, 'green' | 'rose' | 'blue'> = {
+  vandhan: 'green',
+  livestock: 'rose',
+  lpg: 'blue',
+  general: 'blue',
+};
 
 export default function NoticeDetail({ route }: NoticesScreenProps<'NoticeDetail'>) {
   const notice = getNotice(route.params.noticeId);
@@ -34,7 +43,7 @@ export default function NoticeDetail({ route }: NoticesScreenProps<'NoticeDetail
   }
 
   const meta = noticePillarMeta[notice.pillar];
-  const { attachment, recording } = notice;
+  const { attachment } = notice;
 
   // Placeholder: no real file handling yet — confirm the tap with a Toast only.
   const download = () => {
@@ -43,9 +52,12 @@ export default function NoticeDetail({ route }: NoticesScreenProps<'NoticeDetail
 
   return (
     <View style={styles.screen}>
+      {/* Behind the whole page, not inside the scroll content, so it always spans the full screen
+          (this header has no large title, so the ScrollView needn't be the first view). */}
+      <ScenicBackdrop tone={BACKDROP_TONE[notice.pillar]} />
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
-        <View style={styles.tagRow}>
-          <Avatar icon={meta.icon} iconColor={meta.colors.icon} tint={meta.colors.tint} size="l" />
+        <Card elevated style={styles.tagRow}>
+          <Thumbnail uri={null} fallbackIcon={meta.icon} iconColor={meta.colors.icon} tint={meta.colors.tint} size="l" />
           <View style={styles.flex}>
             <Text style={styles.pillar}>{meta.label}</Text>
             <Text style={styles.caption}>{formatDateTime(notice.publishedAt)}</Text>
@@ -55,32 +67,23 @@ export default function NoticeDetail({ route }: NoticesScreenProps<'NoticeDetail
             tone={wasUnread ? 'info' : 'neutral'}
             icon={wasUnread ? 'ellipse' : 'checkmark'}
           />
-        </View>
+        </Card>
 
-        <Text accessibilityRole="header" style={styles.title}>
-          {notice.title}
-        </Text>
-
-        {notice.body.map((paragraph) => (
-          <Text key={paragraph} style={styles.body}>
-            {paragraph}
+        <Card elevated style={styles.article}>
+          <Text accessibilityRole="header" style={styles.title}>
+            {notice.title}
           </Text>
-        ))}
-
-        {recording ? (
-          <AudioPlayer
-            durationSeconds={recording.durationSeconds}
-            uri={recording.url}
-            label="Play recording"
-            accentColor={meta.colors.icon}
-            tint={meta.colors.tint}
-          />
-        ) : null}
+          {notice.body.map((paragraph) => (
+            <Text key={paragraph} style={styles.body}>
+              {paragraph}
+            </Text>
+          ))}
+        </Card>
 
         {attachment ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Additional information</Text>
-            <Card padded={false}>
+            <Card padded={false} elevated>
               <ListRow
                 icon="document-text"
                 iconColor={theme.pillarTint.notices.icon}
@@ -88,10 +91,12 @@ export default function NoticeDetail({ route }: NoticesScreenProps<'NoticeDetail
                 title={attachment.fileName}
                 subtitle={formatFileSize(attachment.sizeBytes)}
                 trailing={
-                  <Ionicons
-                    name="download-outline"
-                    size={theme.type.title.fontSize}
+                  <IconButton
+                    icon="download-outline"
                     color={theme.color.primary}
+                    tint={theme.color.primaryTint}
+                    accessibilityLabel={`Download ${attachment.fileName}`}
+                    onPress={download}
                   />
                 }
                 onPress={download}
@@ -99,6 +104,7 @@ export default function NoticeDetail({ route }: NoticesScreenProps<'NoticeDetail
             </Card>
           </View>
         ) : null}
+        <TabBarSpacer />
       </ScrollView>
       <Toast visible={toast !== null} message={toast ?? ''} onHide={() => setToast(null)} />
     </View>
@@ -108,9 +114,14 @@ export default function NoticeDetail({ route }: NoticesScreenProps<'NoticeDetail
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: theme.color.backgroundCool,
+  },
+  article: {
+    gap: theme.space.m,
   },
   content: {
+    // Fill at least the screen, so the backdrop inside the scroll content reaches the bottom.
+    flexGrow: 1,
     padding: theme.space.m,
     gap: theme.space.m,
   },
@@ -124,14 +135,16 @@ const styles = StyleSheet.create({
   },
   pillar: {
     ...theme.type.body,
-    color: theme.color.textPrimary,
+    fontSize: theme.type.headline.fontSize,
+    color: theme.color.textSecondary,
   },
   caption: {
-    ...theme.type.caption,
+    ...theme.type.body,
     color: theme.color.textSecondary,
   },
   title: {
     ...theme.type.largeTitle,
+    fontWeight: '800',
     color: theme.color.textPrimary,
   },
   body: {

@@ -2,6 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import theme from '../../theme';
+import type { AppIconName } from './AppIcon';
 import Thumbnail from './Thumbnail';
 
 export type StockCardProps = {
@@ -10,7 +11,7 @@ export type StockCardProps = {
   quantityLabel: string;
   locationLabel: string;
   imageUrl: string | null;
-  fallbackIcon: keyof typeof Ionicons.glyphMap;
+  fallbackIcon: AppIconName;
   fallbackIconColor?: string;
   fallbackTint?: string;
   onPress: () => void;

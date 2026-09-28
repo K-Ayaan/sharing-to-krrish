@@ -9,6 +9,8 @@ export type QuickActionTileProps = {
   onPress: () => void;
   iconColor: string;
   tint: string;
+  /** Greyed out, e.g. a service the user hasn't registered for. Still pressable. */
+  muted?: boolean;
   style?: ViewStyle;
 };
 
@@ -20,23 +22,28 @@ export default function QuickActionTile({
   onPress,
   iconColor,
   tint,
+  muted = false,
   style,
 }: QuickActionTileProps) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={muted ? `${label}, not registered` : label}
       onPress={onPress}
       style={({ pressed }) => [styles.item, pressed && styles.pressed, style]}
     >
-      <View style={[styles.tile, { backgroundColor: tint }]}>
-        <Ionicons name={icon} size={theme.space.xl - theme.space.s} color={iconColor} />
+      <View style={[styles.tile, { backgroundColor: muted ? theme.color.surfaceMuted : tint }]}>
+        <Ionicons
+          name={icon}
+          size={theme.space.xl - theme.space.s}
+          color={muted ? theme.color.textSecondary : iconColor}
+        />
       </View>
       <Text
         adjustsFontSizeToFit
         minimumFontScale={MIN_LABEL_SCALE}
         numberOfLines={1}
-        style={styles.label}
+        style={[styles.label, muted && styles.labelMuted]}
       >
         {label}
       </Text>
@@ -64,5 +71,8 @@ const styles = StyleSheet.create({
     ...theme.type.body,
     color: theme.color.textPrimary,
     textAlign: 'center',
+  },
+  labelMuted: {
+    color: theme.color.textSecondary,
   },
 });

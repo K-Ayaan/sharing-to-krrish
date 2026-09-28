@@ -11,6 +11,15 @@ export const BOOKING_INTERVAL_DAYS = 21;
  */
 const MOCK_SCENARIO: 'eligible' | 'waiting' = 'eligible';
 
+/**
+ * LPG isn't linked to a new account automatically, so it starts unregistered and the
+ * registration gate shows. Set true to start registered with the demo connection.
+ */
+const LPG_REGISTERED_AT_LAUNCH = false;
+
+/** Registering with this LPG ID fails as "not found", to exercise the error state. */
+export const UNKNOWN_TEST_LPG_ID = '0000000000';
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REQUEST_SEQUENCE_START = 438;
 /** Days after booking at which each stage completes, in REQUEST_STAGES order. */
@@ -54,13 +63,25 @@ export type ComplaintCategoryId =
   | 'unable_to_call'
   | 'delivery_timing';
 
+export type ContactMethod = 'call' | 'sms';
+
 export type Complaint = {
   id: string;
   categoryId: ComplaintCategoryId;
-  description: string | null;
+  /** Required since the complaint redesign (up to 500 characters). */
+  description: string;
   requestId: string | null;
+  /** Optional; prefilled from the request when the complaint starts from RequestStatus. */
+  bookingReference: string | null;
+  contactMethod: ContactMethod;
+  /** 10-digit national number the user wants to be reached on. */
+  contactPhone: string;
+  /** Local photo URIs (up to 3). A real backend would receive uploads instead. */
+  photoUris: string[];
   submittedAt: string;
 };
+
+export type ComplaintRequest = Omit<Complaint, 'id' | 'submittedAt'>;
 
 export const complaintCategories: { id: ComplaintCategoryId; name: string }[] = [
   { id: 'unable_to_book', name: 'Unable to book' },
@@ -71,7 +92,6 @@ export const complaintCategories: { id: ComplaintCategoryId; name: string }[] = 
 ];
 
 export const mockLpgHome = {
-  tagline: 'Clean energy for a greener Nagaland.',
   banner: { id: 'ann-lpg-connection-camp', text: 'New connection camp at Dimapur on 22nd Aug.' },
   ioclBookingPhone: IOCL_BOOKING_PHONE,
 };
@@ -107,32 +127,70 @@ function makeRequest(
 
 // ---- In-memory "API": a booking made in the app is what LpgHome and RequestStatus then show.
 
+/** The registered connection's IOCL refill history. Only readable once registered. */
 const requests: RefillRequest[] =
   MOCK_SCENARIO === 'eligible'
     ? [makeRequest('REQ-2025-0412', '5H2M8Q1', 23, 'delivered', 'normal')]
     : [makeRequest('REQ-2025-0437', '6J7K9L2', 2, 'consolidated', 'normal')];
 
-const connection: LpgConnection = {
-  lpgId: '1234567890',
-  consumerNumber: '76543210',
-  lastBookingAt: requests[requests.length - 1].bookedAt,
-};
+let lastBookingAt = requests[requests.length - 1].bookedAt;
 
 const complaints: Complaint[] = [];
 
-export const getConnection = (): LpgConnection => connection;
+// ---- Registration: kept here, in this pillar's own mock, rather than in any shared store.
+
+export type LpgRegistrationRecord = {
+  isRegistered: boolean;
+  lpgId: string | null;
+  consumerNumber: string | null;
+  registeredAt: string | null;
+};
+
+const registration: LpgRegistrationRecord = LPG_REGISTERED_AT_LAUNCH
+  ? { isRegistered: true, lpgId: '1234567890', consumerNumber: '9876543210', registeredAt: daysFromNow(-60) }
+  : { isRegistered: false, lpgId: null, consumerNumber: null, registeredAt: null };
+
+export const getLpgRegistration = (): Readonly<LpgRegistrationRecord> => registration;
+
+export const isLpgRegistered = () => registration.isRegistered;
+
+/** Mock IOCL lookup: registers the connection to this account and brings its refill history with it. */
+export async function registerLpg(input: {
+  lpgId: string;
+  consumerNumber: string;
+}): Promise<LpgRegistrationRecord> {
+  if (input.lpgId === UNKNOWN_TEST_LPG_ID) {
+    throw new Error("We couldn't find an IOCL connection with these details. Check them against your passbook.");
+  }
+  registration.isRegistered = true;
+  registration.lpgId = input.lpgId;
+  registration.consumerNumber = input.consumerNumber;
+  registration.registeredAt = new Date().toISOString();
+  return { ...registration };
+}
+
+export function getConnection(): LpgConnection | null {
+  const { isRegistered, lpgId, consumerNumber } = registration;
+  if (!isRegistered || !lpgId || !consumerNumber) return null;
+  return { lpgId, consumerNumber, lastBookingAt };
+}
 
 export const nextEligibleDate = (lpg: LpgConnection) =>
   new Date(new Date(lpg.lastBookingAt).getTime() + BOOKING_INTERVAL_DAYS * DAY_MS);
 
-export const getLatestRequest = (): RefillRequest | null => requests[requests.length - 1] ?? null;
+export const getLatestRequest = (): RefillRequest | null =>
+  registration.isRegistered ? (requests[requests.length - 1] ?? null) : null;
 
-export const getRequest = (id: string) => requests.find((request) => request.id === id);
+export const getRequest = (id: string) =>
+  registration.isRegistered ? requests.find((request) => request.id === id) : undefined;
+
+export const getRequests = (): readonly RefillRequest[] => (registration.isRegistered ? requests : []);
 
 export async function submitBookingReference(input: {
   bookingReference: string;
   urgency: Urgency;
 }): Promise<RefillRequest> {
+  if (!registration.isRegistered) throw new Error('Register your LPG connection before booking a refill.');
   const request = makeRequest(
     `REQ-2025-${pad(REQUEST_SEQUENCE_START + requests.length, 4)}`,
     input.bookingReference,
@@ -141,15 +199,11 @@ export async function submitBookingReference(input: {
     input.urgency
   );
   requests.push(request);
-  connection.lastBookingAt = request.bookedAt;
+  lastBookingAt = request.bookedAt;
   return request;
 }
 
-export async function submitComplaint(input: {
-  categoryId: ComplaintCategoryId;
-  description: string | null;
-  requestId: string | null;
-}): Promise<Complaint> {
+export async function submitComplaint(input: ComplaintRequest): Promise<Complaint> {
   const now = new Date();
   const complaint: Complaint = {
     id: `CMP-${now.getFullYear()}-${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(complaints.length + 1, 3)}`,
@@ -162,32 +216,37 @@ export async function submitComplaint(input: {
 
 export const getComplaint = (id: string) => complaints.find((complaint) => complaint.id === id);
 
-export const getRequests = (): readonly RefillRequest[] => requests;
-
 export const getComplaints = (): readonly Complaint[] => complaints;
 
-// ---- One derived view of LPG state, shared by Home's status card and LpgHome.
+// ---- One derived view of LPG state, shared by Home's status card, Services and LpgHome.
 
-export type LpgSummary = {
-  connection: LpgConnection;
-  nextEligibleAt: string;
-  /** Whole calendar days until booking opens; 0 or less means it's open. */
-  daysUntilEligible: number;
-  canBook: boolean;
-  latestRequest: RefillRequest | null;
-  /** The latest request while it's still undelivered. */
-  activeRequest: RefillRequest | null;
-};
+export type LpgSummary =
+  | { isRegistered: false }
+  | {
+      isRegistered: true;
+      connection: LpgConnection;
+      nextEligibleAt: string;
+      /** Whole calendar days until booking opens; 0 or less means it's open. */
+      daysUntilEligible: number;
+      canBook: boolean;
+      latestRequest: RefillRequest | null;
+      /** The latest request while it's still undelivered. */
+      activeRequest: RefillRequest | null;
+    };
 
 const startOfDay = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 
 export function getLpgSummary(today = new Date()): LpgSummary {
+  const connection = getConnection();
+  if (!connection) return { isRegistered: false };
+
   const nextEligible = nextEligibleDate(connection);
   const daysUntilEligible = Math.round((startOfDay(nextEligible) - startOfDay(today)) / DAY_MS);
   const latestRequest = getLatestRequest();
 
   return {
+    isRegistered: true,
     connection,
     nextEligibleAt: nextEligible.toISOString(),
     daysUntilEligible,

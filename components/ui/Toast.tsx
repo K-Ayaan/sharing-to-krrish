@@ -1,5 +1,6 @@
 // <Toast visible={!!message} message={message ?? ''} onHide={() => setMessage(null)} />
-import { useEffect, useRef } from 'react';
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
+import { useContext, useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import theme from '../../theme';
@@ -8,7 +9,7 @@ export type ToastProps = {
   visible: boolean;
   message: string;
   onHide: () => void;
-  /** Extra lift above the safe area, e.g. the tab bar height. */
+  /** Extra lift, e.g. a pinned footer's height. The floating tab bar is cleared automatically. */
   bottomOffset?: number;
 };
 
@@ -18,6 +19,8 @@ const SLIDE_DISTANCE = theme.space.m;
 
 export default function Toast({ visible, message, onHide, bottomOffset = 0 }: ToastProps) {
   const insets = useSafeAreaInsets();
+  // Inside MainTabs the floating tab bar covers the bottom edge; its height includes the safe area.
+  const tabBarHeight = useContext(BottomTabBarHeightContext);
   const progress = useRef(new Animated.Value(0)).current;
   // Held in a ref so a parent re-render (e.g. a ticking countdown) doesn't restart the timer.
   const onHideRef = useRef(onHide);
@@ -56,7 +59,7 @@ export default function Toast({ visible, message, onHide, bottomOffset = 0 }: To
       style={[
         styles.toast,
         {
-          bottom: insets.bottom + bottomOffset + theme.space.m,
+          bottom: (tabBarHeight ?? insets.bottom) + bottomOffset + theme.space.m,
           opacity: progress,
           transform: [
             {

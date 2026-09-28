@@ -1,166 +1,145 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Avatar from '../../components/ui/Avatar';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import IconButton from '../../components/ui/IconButton';
+import ListRow from '../../components/ui/ListRow';
 import QuickActionTile from '../../components/ui/QuickActionTile';
-import RunningBanner from '../../components/ui/RunningBanner';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
 import StatusPill from '../../components/ui/StatusPill';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import TextField from '../../components/ui/TextField';
-import { mockHomeData } from '../../data/mock/mockHomeData';
-import { getLpgSummary, type LpgSummary } from '../../data/mock/mockLpg';
+import { isLpgRegistered } from '../../data/mock/mockLpg';
 import { initialsOf } from '../../data/mock/mockUser';
-import { useResetOnboarding } from '../../navigation/OnboardingContext';
+import { getVanDhanRegistration } from '../../data/mock/mockVanDhan';
 import type { HomeScreenProps } from '../../navigation/types';
 import theme from '../../theme';
 import { formatDate } from '../formatDate';
-import { bookingLockLabel, formatDateRange, requestStageMeta } from '../lpg/lpgFormat';
 import { pillarMeta } from '../pillarMeta';
 import { useUnreadNoticeCount } from '../useUnreadNoticeCount';
+import { useUserProfile } from '../useUserProfile';
+import { getRecentActivity, type Activity } from './recentActivity';
 
 const MORNING_ENDS_AT = 12;
 const AFTERNOON_ENDS_AT = 17;
+const MIN_TOUCH_TARGET = theme.space.xl + theme.space.xs;
 
 function greetingFor(date: Date) {
   const hour = date.getHours();
-  if (hour < MORNING_ENDS_AT) return 'Good morning';
-  if (hour < AFTERNOON_ENDS_AT) return 'Good afternoon';
-  return 'Good evening';
+  if (hour < MORNING_ENDS_AT) return 'Good Morning';
+  if (hour < AFTERNOON_ENDS_AT) return 'Good Afternoon';
+  return 'Good Evening';
 }
 
-type LpgCardCopy = {
-  urgent: boolean;
-  label: string;
-  meta: string;
-  title: string;
-  body: string;
-};
-
-// Every value comes from getLpgSummary() — the same source LpgHome renders.
-function describeLpg(summary: LpgSummary): LpgCardCopy {
-  if (summary.activeRequest) {
-    const { stage, expectedDelivery } = summary.activeRequest;
-    return {
-      urgent: false,
-      label: 'In Progress',
-      meta: `LPG · ${requestStageMeta[stage].label}`,
-      title: 'Your LPG refill is on its way',
-      body: `Expected delivery ${formatDateRange(expectedDelivery.from, expectedDelivery.to)}.`,
-    };
-  }
-  if (summary.canBook) {
-    return {
-      urgent: true,
-      label: 'Action Required',
-      meta: 'LPG · Booking open',
-      title: 'Your LPG refill is due',
-      body: 'Book your refill now to avoid service disruption.',
-    };
-  }
-  return {
-    urgent: false,
-    label: 'Up to date',
-    meta: `LPG · Next booking ${formatDate(summary.nextEligibleAt)}`,
-    title: bookingLockLabel(summary.daysUntilEligible),
-    body: 'Your last refill has been delivered.',
-  };
+// "Good Afternoon, Abhishek" — first name only, read from the live profile so Settings edits show.
+function firstNameOf(fullName: string) {
+  return fullName.trim().split(/\s+/)[0] ?? '';
 }
 
 export default function Home({ navigation }: HomeScreenProps<'Home'>) {
-  const { user, tagline, announcement } = mockHomeData;
+  const profile = useUserProfile();
   const unreadNotificationCount = useUnreadNoticeCount();
   const [query, setQuery] = useState('');
-  const resetOnboarding = useResetOnboarding();
 
-  // Re-render on focus so a booking made in LPG is reflected when the user comes back.
+  // Re-render on focus so registering or booking inside a pillar is reflected on return.
   useIsFocused();
-  const lpg = getLpgSummary();
-  const lpgCard = describeLpg(lpg);
+  const lpgRegistered = isLpgRegistered();
+  const vanDhan = getVanDhanRegistration();
+  const activity = getRecentActivity();
 
-  // ---------------------------------------------------------------------------
-  // TEMPORARY — TESTING ONLY. NOT PRODUCT BEHAVIOUR.
-  // Long-pressing the UID chip (dev builds only, gated on __DEV__) wipes the stored
-  // UID and drops back to Onboarding:PhoneEntry so the flow can be re-tested.
-  // Delete this, and the long-press on the chip below, once a Settings/profile
-  // screen exists and provides a real sign-out.
-  // ---------------------------------------------------------------------------
-  const confirmDevReset = () =>
-    Alert.alert('Reset onboarding?', 'This is for testing only.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Reset', style: 'destructive', onPress: () => void resetOnboarding() },
-    ]);
+  // Services aren't linked automatically: Van Dhan and LPG roles appear only once registered.
+  // Everyone registered for Van Dhan is a producer.
+  const registeredRoles = profile.registeredRoles.filter((role) => {
+    if (role.pillar === 'lpg') return lpgRegistered;
+    if (role.pillar === 'vandhan') return vanDhan.isRegistered;
+    return true;
+  });
+
+  const openSettings = () => navigation.navigate('Settings');
 
   // Cross-tab jumps pass `pop: true` at every nested level. In React Navigation 7,
   // navigate only reuses a screen that is currently on top; without `pop` it pushes a
   // duplicate when the target sits lower in a stack the user left mid-flow (flow.md).
   const openNotices = () => navigation.navigate('NoticesTab', { screen: 'Notices', pop: true });
 
-  const openAnnouncement = () =>
-    navigation.navigate('NoticesTab', {
-      screen: 'NoticeDetail',
-      initial: false,
-      pop: true,
-      params: { noticeId: announcement.id },
-    });
-
   const openRecords = () => navigation.navigate('RecordsTab', { screen: 'Records', pop: true });
 
   const openServices = () => navigation.navigate('ServicesTab', { screen: 'Services', pop: true });
 
-  const viewRefillDetails = () =>
+  // Registration gate: unregistered users land on the pillar's registration screen.
+  const openVanDhan = () =>
+    navigation.navigate('ServicesTab', {
+      screen: 'VanDhanStack',
+      initial: false,
+      pop: true,
+      params: { screen: vanDhan.isRegistered ? 'VanDhanHome' : 'VanDhanRegistration', pop: true },
+    });
+
+  const openLpg = () =>
     navigation.navigate('ServicesTab', {
       screen: 'LpgStack',
       initial: false,
       pop: true,
-      params: { screen: 'RequestStatus', initial: false, pop: true },
+      params: { screen: lpgRegistered ? 'LpgHome' : 'LpgRegistration', pop: true },
     });
 
-  const bookRefill = () =>
-    navigation.navigate('ServicesTab', {
-      screen: 'LpgStack',
-      initial: false,
-      pop: true,
-      params: { screen: 'LpgHome', params: { openRefillSheet: true }, pop: true },
-    });
-
-  const accent = lpgCard.urgent ? theme.color.danger : theme.color.primary;
+  // Activity rows open the matching record or notice in its own tab, with that tab's list kept
+  // underneath (`initial: false`) so back returns to My Records / Notices.
+  const openActivity = ({ target }: Activity) =>
+    target.kind === 'record'
+      ? navigation.navigate('RecordsTab', {
+          screen: 'RecordDetail',
+          params: { recordId: target.recordId },
+          initial: false,
+          pop: true,
+        })
+      : navigation.navigate('NoticesTab', {
+          screen: 'NoticeDetail',
+          params: { noticeId: target.noticeId },
+          initial: false,
+          pop: true,
+        });
 
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
+      <ScenicBackdrop />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* TEMPORARY: onLongPress is the dev-only onboarding reset — see confirmDevReset. */}
-        <Pressable onLongPress={__DEV__ ? confirmDevReset : undefined}>
-          <Card style={styles.profileBar}>
-            <Avatar initials={initialsOf(user.fullName)} />
+        <Card style={styles.profileBar}>
+          {/* UID chip → Settings. The bell is a sibling, not nested, so VoiceOver reaches both. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Settings. ${profile.fullName}, UID ${profile.uid}`}
+            onPress={openSettings}
+            style={({ pressed }) => [styles.uidChip, pressed && styles.pressed]}
+          >
+            <Avatar initials={initialsOf(profile.fullName)} />
             <Text numberOfLines={1} style={styles.uid}>
               <Text style={styles.uidLabel}>{'UID  '}</Text>
-              {user.uid}
+              {profile.uid}
             </Text>
-            <IconButton
-              icon="notifications-outline"
-              badgeCount={unreadNotificationCount}
-              accessibilityLabel="Notifications"
-              onPress={openNotices}
-            />
-          </Card>
-        </Pressable>
+            <Ionicons name="chevron-forward" size={theme.type.body.fontSize} color={theme.color.textSecondary} />
+          </Pressable>
+          <IconButton
+            icon="notifications-outline"
+            badgeCount={unreadNotificationCount}
+            accessibilityLabel="Notifications"
+            onPress={openNotices}
+          />
+        </Card>
 
-        <View style={styles.greeting}>
-          <Text accessibilityRole="header" style={styles.title}>
-            {greetingFor(new Date())}
-          </Text>
-          <Text style={styles.tagline}>{tagline}</Text>
-        </View>
+        <Text accessibilityRole="header" style={styles.title}>
+          {[greetingFor(new Date()), firstNameOf(profile.fullName)].filter(Boolean).join(', ')}
+        </Text>
 
         <TextField
           accessibilityLabel="Search"
           icon="search"
           onChangeText={setQuery}
-          placeholder="Search across Van Dhan, Livestock, LPG, Notices…"
+          placeholder="Search across Van Dhan, Livestock, Notices…"
           returnKeyType="search"
           trailing={
             <Ionicons name="mic-outline" size={theme.type.title.fontSize} color={theme.color.textSecondary} />
@@ -169,20 +148,16 @@ export default function Home({ navigation }: HomeScreenProps<'Home'>) {
           variant="search"
         />
 
+        {/* All five always show. Van Dhan and LPG are greyed out until registered; tapping one opens its
+            registration screen. Livestock never needs registration. */}
         <View style={styles.quickActions}>
           <QuickActionTile
             icon={pillarMeta.vandhan.icon}
             label={pillarMeta.vandhan.label}
             iconColor={pillarMeta.vandhan.colors.icon}
             tint={pillarMeta.vandhan.colors.tint}
-            onPress={() =>
-              navigation.navigate('ServicesTab', {
-                screen: 'VanDhanStack',
-                initial: false,
-                pop: true,
-                params: { screen: 'VanDhanHome', pop: true },
-              })
-            }
+            muted={!vanDhan.isRegistered}
+            onPress={openVanDhan}
           />
           <QuickActionTile
             icon={pillarMeta.livestock.icon}
@@ -203,14 +178,8 @@ export default function Home({ navigation }: HomeScreenProps<'Home'>) {
             label={pillarMeta.lpg.label}
             iconColor={pillarMeta.lpg.colors.icon}
             tint={pillarMeta.lpg.colors.tint}
-            onPress={() =>
-              navigation.navigate('ServicesTab', {
-                screen: 'LpgStack',
-                initial: false,
-                pop: true,
-                params: { screen: 'LpgHome', pop: true },
-              })
-            }
+            muted={!lpgRegistered}
+            onPress={openLpg}
           />
           <QuickActionTile
             icon="document-text"
@@ -228,13 +197,7 @@ export default function Home({ navigation }: HomeScreenProps<'Home'>) {
           />
         </View>
 
-        <RunningBanner
-          icon="megaphone"
-          text={`${announcement.category}: ${announcement.title}`}
-          onPress={openAnnouncement}
-          style={styles.fullBleed}
-        />
-
+        {/* No announcements on Home: updates live only in Notices. */}
         <Card style={styles.row}>
           <Avatar icon="people" size="l" />
           <View style={styles.flex}>
@@ -243,7 +206,7 @@ export default function Home({ navigation }: HomeScreenProps<'Home'>) {
               <Button label="Manage" variant="text" trailingIcon="chevron-forward" onPress={openServices} />
             </View>
             <View style={styles.chips}>
-              {user.registeredRoles.map((role) => (
+              {registeredRoles.map((role) => (
                 <StatusPill
                   key={role.pillar}
                   label={role.label}
@@ -255,34 +218,34 @@ export default function Home({ navigation }: HomeScreenProps<'Home'>) {
           </View>
         </Card>
 
-        <Card tone={lpgCard.urgent ? 'danger' : 'info'}>
-          <View style={styles.row}>
-            <Avatar icon={pillarMeta.lpg.icon} iconColor={accent} tint={theme.color.surface} size="l" />
-            <View style={styles.flex}>
-              <View style={styles.cardHeader}>
-                <Text style={[styles.severity, { color: accent }]}>{lpgCard.label}</Text>
-                <Text style={styles.meta}>{lpgCard.meta}</Text>
-              </View>
-              <Text style={styles.cardTitle}>{lpgCard.title}</Text>
-              <Text style={styles.body}>{lpgCard.body}</Text>
-            </View>
+        {/* Replaces the LPG status card (redesign): refills are booked and tracked in Services → LPG. */}
+        <Card padded={false} elevated>
+          <View style={styles.activityHeader}>
+            <Text accessibilityRole="header" style={styles.cardTitle}>
+              Recent activities
+            </Text>
+            <Button label="View all" variant="text" trailingIcon="chevron-forward" onPress={openRecords} />
           </View>
-          <View style={styles.actions}>
-            <Button
-              label="View Details"
-              variant="secondary"
-              onPress={viewRefillDetails}
-              style={styles.flex}
-            />
-            <Button
-              label="Book Refill"
-              icon={pillarMeta.lpg.icon}
-              disabled={!lpg.canBook}
-              onPress={bookRefill}
-              style={styles.flex}
-            />
-          </View>
+          {activity.length === 0 ? (
+            <Text style={styles.empty}>Nothing yet — your collections, requests and notices will show here.</Text>
+          ) : (
+            activity.map((item, index) => (
+              <ListRow
+                key={item.id}
+                icon={item.icon}
+                iconColor={item.iconColor}
+                iconBackground={item.tint}
+                iconShape="circle"
+                title={item.title}
+                subtitle={item.subtitle}
+                meta={formatDate(item.occurredAt)}
+                divider={index < activity.length - 1}
+                onPress={() => openActivity(item)}
+              />
+            ))
+          )}
         </Card>
+        <TabBarSpacer />
       </ScrollView>
     </SafeAreaView>
   );
@@ -291,7 +254,7 @@ export default function Home({ navigation }: HomeScreenProps<'Home'>) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: theme.color.backgroundWarm,
   },
   content: {
     padding: theme.space.m,
@@ -306,6 +269,16 @@ const styles = StyleSheet.create({
     gap: theme.space.m,
     paddingVertical: theme.space.s,
   },
+  uidChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space.m,
+    minHeight: MIN_TOUCH_TARGET,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
   uid: {
     ...theme.type.body,
     color: theme.color.textPrimary,
@@ -315,23 +288,13 @@ const styles = StyleSheet.create({
     ...theme.type.caption,
     color: theme.color.textSecondary,
   },
-  greeting: {
-    gap: theme.space.xs,
-  },
   title: {
-    ...theme.type.largeTitle,
+    ...theme.type.display,
     color: theme.color.textPrimary,
-  },
-  tagline: {
-    ...theme.type.body,
-    color: theme.color.textSecondary,
   },
   quickActions: {
     flexDirection: 'row',
     gap: theme.space.s,
-  },
-  fullBleed: {
-    marginHorizontal: -theme.space.m,
   },
   row: {
     flexDirection: 'row',
@@ -354,22 +317,18 @@ const styles = StyleSheet.create({
     gap: theme.space.s,
     marginTop: theme.space.s,
   },
-  severity: {
-    ...theme.type.caption,
-    fontWeight: '600',
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.space.s,
+    paddingHorizontal: theme.space.m,
+    paddingTop: theme.space.m,
+    paddingBottom: theme.space.xs,
   },
-  meta: {
-    ...theme.type.caption,
-    color: theme.color.textSecondary,
-  },
-  body: {
+  empty: {
     ...theme.type.body,
     color: theme.color.textSecondary,
-    marginTop: theme.space.xs,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: theme.space.s,
-    marginTop: theme.space.m,
+    padding: theme.space.m,
   },
 });

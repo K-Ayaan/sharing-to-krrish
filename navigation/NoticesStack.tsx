@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import NoticeDetail from '../screens/notices/NoticeDetail';
 import Notices from '../screens/notices/Notices';
+import theme from '../theme';
 import { stackScreenOptions } from './stackOptions';
 import type { NoticesStackParamList } from './types';
 
@@ -14,7 +15,14 @@ export default function NoticesStack() {
       <Stack.Screen
         name="NoticeDetail"
         component={NoticeDetail}
-        options={{ title: 'Notice Detail', headerBackTitle: 'Back' }}
+        options={{
+          title: 'Notice Detail',
+          headerBackTitle: 'Back',
+          // Redesign: pale blue page under the header, dark back button (NoticeDetail.png).
+          headerTintColor: theme.color.textPrimary,
+          headerStyle: { backgroundColor: theme.color.backgroundCool },
+          contentStyle: { backgroundColor: theme.color.backgroundCool },
+        }}
       />
     </Stack.Navigator>
   );

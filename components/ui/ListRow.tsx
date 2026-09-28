@@ -4,11 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import theme from '../../theme';
+import AppIcon, { type AppIconName } from './AppIcon';
+import { useAppearance } from './Appearance';
 
 export type ListRowProps = {
   title: string;
   onPress: () => void;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: AppIconName;
   subtitle?: string;
   /** Chevron, StatusPill or plain text. Omit for a chevron (or the unread dot); pass <></> for nothing. */
   trailing?: ReactNode;
@@ -17,6 +19,19 @@ export type ListRowProps = {
   size?: 'default' | 'large';
   iconColor?: string;
   iconBackground?: string;
+  /** `circle` draws the icon in a round badge (Settings, Home's activity list). */
+  iconShape?: 'rounded' | 'circle';
+  /** Replaces the icon box, e.g. an Avatar with initials. */
+  leading?: ReactNode;
+  /** Short text before the chevron, e.g. a date or "Light". */
+  meta?: string;
+  /**
+   * Time shown top-right with the unread dot beneath it; the chevron then always shows (Notices).
+   * Without it, an unread row shows the dot in place of the chevron.
+   */
+  timestamp?: string;
+  /** `danger` colours the title for destructive rows such as "Log out". */
+  tone?: 'default' | 'danger';
   /** Hairline under the row, for stacked rows inside a Card. */
   divider?: boolean;
   /** For rows in a multi-select list; exposed to accessibility as selected. */
@@ -41,14 +56,22 @@ export default function ListRow({
   trailing,
   titleAccessory,
   size = 'default',
-  iconColor = theme.color.primary,
-  iconBackground = theme.color.primaryTint,
+  iconColor: iconColorProp,
+  iconBackground: iconBackgroundProp,
+  iconShape = 'rounded',
+  leading,
+  meta,
+  timestamp,
+  tone = 'default',
   divider = false,
   selected,
   unread = false,
   style,
 }: ListRowProps) {
   const large = size === 'large';
+  const { color } = useAppearance();
+  const iconColor = iconColorProp ?? color.primary;
+  const iconBackground = iconBackgroundProp ?? color.primaryTint;
 
   return (
     <Pressable
@@ -64,18 +87,29 @@ export default function ListRow({
         style,
       ]}
     >
-      {icon ? (
-        <View style={[styles.iconBox, large && styles.iconBoxLarge, { backgroundColor: iconBackground }]}>
-          <Ionicons
-            name={icon}
-            size={large ? theme.space.xl - theme.space.s : theme.type.title.fontSize}
-            color={iconColor}
-          />
-        </View>
-      ) : null}
+      {leading ??
+        (icon ? (
+          <View
+            style={[
+              styles.iconBox,
+              large && styles.iconBoxLarge,
+              iconShape === 'circle' && styles.iconCircle,
+              { backgroundColor: iconBackground },
+            ]}
+          >
+            <AppIcon
+              name={icon}
+              size={large ? theme.space.xl - theme.space.s : theme.type.title.fontSize}
+              color={iconColor}
+            />
+          </View>
+        ) : null)}
       <View style={styles.body}>
         <View style={styles.titleRow}>
-          <Text numberOfLines={1} style={[styles.title, large && styles.titleLarge]}>
+          <Text
+            numberOfLines={1}
+            style={[styles.title, large && styles.titleLarge, tone === 'danger' && styles.titleDanger]}
+          >
             {title}
           </Text>
           {titleAccessory}
@@ -86,10 +120,17 @@ export default function ListRow({
           </Text>
         ) : null}
       </View>
+      {meta ? <Text style={styles.meta}>{meta}</Text> : null}
+      {timestamp ? (
+        <View style={styles.stamp}>
+          <Text style={styles.stampText}>{timestamp}</Text>
+          {unread ? <View style={[styles.unreadDot, { backgroundColor: color.primary }]} /> : null}
+        </View>
+      ) : null}
       <View style={styles.trailing}>
         {trailing ??
-          (unread ? (
-            <View style={styles.unreadDot} />
+          (unread && !timestamp ? (
+            <View style={[styles.unreadDot, { backgroundColor: color.primary }]} />
           ) : (
             <Ionicons
               name="chevron-forward"
@@ -150,8 +191,27 @@ const styles = StyleSheet.create({
   titleLarge: {
     ...theme.type.title,
   },
+  titleDanger: {
+    color: theme.color.danger,
+  },
+  iconCircle: {
+    borderRadius: theme.radius.pill,
+  },
+  meta: {
+    ...theme.type.body,
+    color: theme.color.textSecondary,
+  },
   subtitle: {
     ...theme.type.body,
+    color: theme.color.textSecondary,
+  },
+  stamp: {
+    alignSelf: 'stretch',
+    alignItems: 'flex-end',
+    justifyContent: 'space-around',
+  },
+  stampText: {
+    ...theme.type.caption,
     color: theme.color.textSecondary,
   },
   trailing: {

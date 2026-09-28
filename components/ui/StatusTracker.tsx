@@ -1,8 +1,11 @@
 // <StatusTracker steps={[{ label: 'Requested', state: 'done', detail: '12 Aug' }, { label: 'Confirmed', state: 'current' }]} />
 // <StatusTracker orientation="vertical" steps={[{ label: 'Submitted', state: 'done', detail: '10 Aug, 2:15 PM', description: 'Received.' }]} />
+// <StatusTracker variant="guide" steps={[{ label: '1. Go to Kendra', icon: 'walk', state: 'current', description: '…' }]} />
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
-import theme from '../../theme';
+import Svg, { Line } from 'react-native-svg';
+import theme, { Palette } from '../../theme';
+import { useAppearance } from './Appearance';
 
 export type StepState = 'done' | 'current' | 'upcoming';
 
@@ -11,40 +14,58 @@ export type Step = {
   state: StepState;
   /** Short meta under the label, e.g. a timestamp. */
   detail?: string;
-  /** Longer explanatory line. Shown in vertical orientation only. */
+  /** Longer explanatory line. Shown in vertical orientation and the guide variant. */
   description?: string;
+  /** Guide variant: the icon drawn in the step's circle. */
+  icon?: keyof typeof Ionicons.glyphMap;
 };
 
 export type StatusTrackerProps = {
   steps: Step[];
   orientation?: 'horizontal' | 'vertical';
+  /**
+   * `progress` (default) tracks a request's stages. `guide` explains what happens next: large icon
+   * circles joined by dashed lines, with centred titles and descriptions (horizontal only).
+   */
+  variant?: 'progress' | 'guide';
   style?: ViewStyle;
 };
 
 const DOT_SIZE = theme.space.l;
+const GUIDE_DOT_SIZE = theme.space.xl + theme.space.s;
 const CURRENT_CORE = theme.space.s + theme.space.xs;
 const CONNECTOR_THICKNESS = theme.space.xs / 2;
+const DASH_HEIGHT = theme.space.xs / 2;
 
-export default function StatusTracker({ steps, orientation = 'horizontal', style }: StatusTrackerProps) {
+export default function StatusTracker({
+  steps,
+  orientation = 'horizontal',
+  variant = 'progress',
+  style,
+}: StatusTrackerProps) {
+  const { color } = useAppearance();
+  if (variant === 'guide') return <GuideTracker steps={steps} color={color} style={style} />;
   return orientation === 'vertical' ? (
-    <VerticalTracker steps={steps} style={style} />
+    <VerticalTracker steps={steps} color={color} style={style} />
   ) : (
-    <HorizontalTracker steps={steps} style={style} />
+    <HorizontalTracker steps={steps} color={color} style={style} />
   );
 }
 
-function StepDot({ state }: { state: StepState }) {
+type TrackerProps = { steps: Step[]; color: Palette; style?: ViewStyle };
+
+function StepDot({ state, color }: { state: StepState; color: Palette }) {
   return (
-    <View style={[styles.dot, dotStyle(state)]}>
+    <View style={[styles.dot, dotStyle(state, color)]}>
       {state === 'done' ? (
         <Ionicons name="checkmark" size={theme.type.caption.fontSize} color={theme.color.background} />
       ) : null}
-      {state === 'current' ? <View style={styles.currentCore} /> : null}
+      {state === 'current' ? <View style={[styles.currentCore, { backgroundColor: color.primary }]} /> : null}
     </View>
   );
 }
 
-function HorizontalTracker({ steps, style }: Omit<StatusTrackerProps, 'orientation'>) {
+function HorizontalTracker({ steps, color, style }: TrackerProps) {
   return (
     <View accessibilityRole="progressbar" style={[styles.row, style]}>
       {steps.map((step, index) => {
@@ -56,12 +77,12 @@ function HorizontalTracker({ steps, style }: Omit<StatusTrackerProps, 'orientati
         return (
           <View key={step.label} style={[styles.step, isLast && styles.stepLast]}>
             <View style={styles.track}>
-              <StepDot state={step.state} />
+              <StepDot state={step.state} color={color} />
               {isLast ? null : (
                 <View
                   style={[
                     styles.hConnector,
-                    connectorDone ? styles.connectorDone : styles.connectorUpcoming,
+                    { backgroundColor: connectorDone ? color.primary : color.border },
                   ]}
                 />
               )}
@@ -84,7 +105,7 @@ function HorizontalTracker({ steps, style }: Omit<StatusTrackerProps, 'orientati
   );
 }
 
-function VerticalTracker({ steps, style }: Omit<StatusTrackerProps, 'orientation'>) {
+function VerticalTracker({ steps, color, style }: TrackerProps) {
   return (
     <View accessibilityRole="progressbar" style={style}>
       {steps.map((step, index) => {
@@ -93,12 +114,12 @@ function VerticalTracker({ steps, style }: Omit<StatusTrackerProps, 'orientation
         return (
           <View key={step.label} style={styles.vStep}>
             <View style={styles.vRail}>
-              <StepDot state={step.state} />
+              <StepDot state={step.state} color={color} />
               {isLast ? null : (
                 <View
                   style={[
                     styles.vConnector,
-                    step.state === 'done' ? styles.connectorDone : styles.connectorUpcoming,
+                    { backgroundColor: step.state === 'done' ? color.primary : color.border },
                   ]}
                 />
               )}
@@ -117,13 +138,86 @@ function VerticalTracker({ steps, style }: Omit<StatusTrackerProps, 'orientation
   );
 }
 
-function dotStyle(state: StepState) {
-  if (state === 'done') return styles.dotDone;
-  if (state === 'current') return styles.dotCurrent;
-  return styles.dotUpcoming;
+// Each column is a third of the row; the dashed line runs from this circle's edge to the next one's.
+function GuideTracker({ steps, color, style }: TrackerProps) {
+  return (
+    <View style={[styles.row, style]}>
+      {steps.map((step, index) => {
+        const active = step.state !== 'upcoming';
+        return (
+          <View
+            key={step.label}
+            accessible
+            accessibilityLabel={[step.label, step.description].filter(Boolean).join('. ')}
+            style={styles.guideStep}
+          >
+            <View style={styles.guideTrack}>
+              {index > 0 ? <Dashes color={color.border} /> : <View style={styles.flex} />}
+              <View
+                style={[
+                  styles.guideDot,
+                  active
+                    ? { backgroundColor: color.primary }
+                    : [styles.guideDotUpcoming, { backgroundColor: color.surfaceMuted, borderColor: color.border }],
+                ]}
+              >
+                {step.icon ? (
+                  <Ionicons
+                    name={step.icon}
+                    size={theme.type.title.fontSize + theme.space.xs}
+                    color={active ? theme.color.background : color.textSecondary}
+                  />
+                ) : null}
+              </View>
+              {index < steps.length - 1 ? (
+                <Dashes color={color.border} />
+              ) : (
+                <View style={styles.flex} />
+              )}
+            </View>
+            <Text style={[styles.guideLabel, active && { color: color.primary }]}>{step.label}</Text>
+            {step.description ? <Text style={styles.guideDescription}>{step.description}</Text> : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// iOS draws a one-sided dashed border as solid, so the guide's dashes are an SVG line.
+function Dashes({ color }: { color: string }) {
+  return (
+    <View style={styles.dashed}>
+      <Svg width="100%" height={DASH_HEIGHT}>
+        <Line
+          x1="0"
+          y1={DASH_HEIGHT / 2}
+          x2="100%"
+          y2={DASH_HEIGHT / 2}
+          stroke={color}
+          strokeWidth={DASH_HEIGHT / 2}
+          strokeDasharray="4 4"
+        />
+      </Svg>
+    </View>
+  );
+}
+
+function dotStyle(state: StepState, color: Palette) {
+  if (state === 'done') return { backgroundColor: color.primary };
+  if (state === 'current')
+    return { backgroundColor: color.primaryTint, borderWidth: CONNECTOR_THICKNESS, borderColor: color.primary };
+  return {
+    backgroundColor: color.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderColor: color.border,
+  };
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -145,35 +239,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dotDone: {
-    backgroundColor: theme.color.primary,
-  },
-  dotCurrent: {
-    backgroundColor: theme.color.primaryTint,
-    borderWidth: CONNECTOR_THICKNESS,
-    borderColor: theme.color.primary,
-  },
-  dotUpcoming: {
-    backgroundColor: theme.color.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth * 2,
-    borderColor: theme.color.border,
-  },
   currentCore: {
     width: CURRENT_CORE,
     height: CURRENT_CORE,
     borderRadius: theme.radius.pill,
-    backgroundColor: theme.color.primary,
   },
   hConnector: {
     flex: 1,
     height: CONNECTOR_THICKNESS,
     marginHorizontal: theme.space.xs,
-  },
-  connectorDone: {
-    backgroundColor: theme.color.primary,
-  },
-  connectorUpcoming: {
-    backgroundColor: theme.color.border,
   },
   label: {
     ...theme.type.caption,
@@ -218,5 +292,42 @@ const styles = StyleSheet.create({
   vDescription: {
     ...theme.type.body,
     color: theme.color.textSecondary,
+  },
+  guideStep: {
+    flex: 1,
+    alignItems: 'center',
+    gap: theme.space.xs,
+  },
+  guideTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    marginBottom: theme.space.s,
+  },
+  dashed: {
+    flex: 1,
+    marginHorizontal: theme.space.xs,
+  },
+  guideDot: {
+    width: GUIDE_DOT_SIZE,
+    height: GUIDE_DOT_SIZE,
+    borderRadius: theme.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guideDotUpcoming: {
+    borderWidth: StyleSheet.hairlineWidth * 2,
+  },
+  guideLabel: {
+    ...theme.type.body,
+    fontWeight: '600',
+    color: theme.color.textPrimary,
+    textAlign: 'center',
+  },
+  guideDescription: {
+    ...theme.type.caption,
+    color: theme.color.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: theme.space.xs,
   },
 });

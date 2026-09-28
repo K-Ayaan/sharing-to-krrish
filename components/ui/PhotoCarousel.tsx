@@ -1,8 +1,9 @@
 // <PhotoCarousel photos={[{ id: 'p1', url: null }]} fallbackIcon="paw" accessibilityLabel="Stock photos" />
-import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
 import theme from '../../theme';
+import type { AppIconName } from './AppIcon';
+import { useAppearance } from './Appearance';
 import Thumbnail from './Thumbnail';
 
 export type CarouselPhoto = {
@@ -12,7 +13,7 @@ export type CarouselPhoto = {
 
 export type PhotoCarouselProps = {
   photos: CarouselPhoto[];
-  fallbackIcon: keyof typeof Ionicons.glyphMap;
+  fallbackIcon: AppIconName;
   iconColor?: string;
   tint?: string;
   accessibilityLabel?: string;
@@ -34,6 +35,7 @@ export default function PhotoCarousel({
 }: PhotoCarouselProps) {
   const [width, setWidth] = useState(0);
   const [page, setPage] = useState(0);
+  const { color } = useAppearance();
   const pages = photos.length > 0 ? photos : [{ id: 'fallback', url: null }];
 
   return (
@@ -67,7 +69,10 @@ export default function PhotoCarousel({
       {pages.length > 1 ? (
         <View style={styles.dots}>
           {pages.map((photo, index) => (
-            <View key={photo.id} style={[styles.dot, index === page && styles.dotActive]} />
+            <View
+              key={photo.id}
+              style={[styles.dot, index === page && [styles.dotActive, { backgroundColor: color.primary }]]}
+            />
           ))}
         </View>
       ) : null}

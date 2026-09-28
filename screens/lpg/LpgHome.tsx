@@ -1,13 +1,17 @@
 import { useIsFocused } from '@react-navigation/native';
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import CylinderIllustration from '../../components/ui/CylinderIllustration';
 import DetailRow from '../../components/ui/DetailRow';
 import IconButton from '../../components/ui/IconButton';
 import RunningBanner from '../../components/ui/RunningBanner';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
+import ServiceHeader from '../../components/ui/ServiceHeader';
+import StatusPill from '../../components/ui/StatusPill';
 import StatusTracker from '../../components/ui/StatusTracker';
-import Thumbnail from '../../components/ui/Thumbnail';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import Toast from '../../components/ui/Toast';
 import { BOOKING_INTERVAL_DAYS, getLpgSummary, mockLpgHome } from '../../data/mock/mockLpg';
 import type { LpgScreenProps } from '../../navigation/types';
@@ -23,8 +27,10 @@ import RequestRefillSheet from './RequestRefillSheet';
 // (LpgHome was already on top, so nothing animated).
 const TRANSITION_FALLBACK_MS = 500;
 
+const { color } = theme.lpg;
+
 export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>) {
-  const { tagline, banner } = mockLpgHome;
+  const { banner } = mockLpgHome;
   const unreadNotificationCount = useUnreadNoticeCount();
   const [refillOpen, setRefillOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -32,27 +38,16 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
   // Re-render on focus so a booking made in EnterBookingReference shows on return.
   // getLpgSummary() is the same source Home's LPG card reads, so they always agree.
   useIsFocused();
-  const {
-    connection,
-    nextEligibleAt,
-    daysUntilEligible: daysLeft,
-    canBook,
-    activeRequest,
-  } = getLpgSummary();
+  const summary = getLpgSummary();
+  const registered = summary.isRegistered;
+  const canBook = summary.isRegistered && summary.canBook;
+  const daysLeft = summary.isRegistered ? summary.daysUntilEligible : 0;
 
-  // Pillar-home rule (flow.md): native large title, visible back chevron, bell in the header.
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <IconButton
-          icon="notifications-outline"
-          badgeCount={unreadNotificationCount}
-          accessibilityLabel="Notifications"
-          onPress={() => navigation.navigate('NoticesTab', { screen: 'Notices', pop: true })}
-        />
-      ),
-    });
-  }, [navigation, unreadNotificationCount]);
+  // Registration gate (flow.md): the Services card and Home route unregistered users straight to
+  // LpgRegistration; any other way in is redirected here instead.
+  useEffect(() => {
+    if (!registered) navigation.replace('LpgRegistration');
+  }, [registered, navigation]);
 
   // Home's "Book Refill" lands here with openRefillSheet. iOS can drop a Modal presented
   // mid-push, so open once the transition ends (or after the fallback when nothing animated).
@@ -60,7 +55,7 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
   // cancels whichever trigger didn't fire.
   const openRefillSheet = route.params?.openRefillSheet;
   useEffect(() => {
-    if (!openRefillSheet) return;
+    if (!openRefillSheet || !registered) return;
 
     if (!canBook) {
       setToast(bookingLockLabel(daysLeft));
@@ -78,28 +73,53 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
       unsubscribe();
       clearTimeout(fallback);
     };
-  }, [openRefillSheet, canBook, daysLeft, navigation]);
+  }, [openRefillSheet, registered, canBook, daysLeft, navigation]);
+
+  if (!summary.isRegistered) {
+    // Blank for the instant before the redirect lands.
+    return <View style={styles.screen} />;
+  }
+
+  const { connection, nextEligibleAt, activeRequest } = summary;
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
-        <View style={styles.taglineRow}>
-          <Text style={[styles.secondary, styles.flex]}>{tagline}</Text>
-          <Thumbnail
-            uri={null}
-            fallbackIcon={pillarMeta.lpg.icon}
-            iconColor={pillarMeta.lpg.colors.icon}
-            tint={pillarMeta.lpg.colors.tint}
+      <ScenicBackdrop />
+      <ServiceHeader
+        title={pillarMeta.lpg.label}
+        icon={pillarMeta.lpg.icon}
+        iconColor={pillarMeta.lpg.colors.icon}
+        tint={pillarMeta.lpg.colors.tint}
+        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+        trailing={
+          <IconButton
+            icon="notifications-outline"
+            badgeCount={unreadNotificationCount}
+            accessibilityLabel="Notifications"
+            tint={color.surface}
+            onPress={() => navigation.navigate('NoticesTab', { screen: 'Notices', pop: true })}
           />
-        </View>
-
+        }
+      />
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+        <CylinderIllustration style={styles.hero} />
         <RunningBanner tone="info" icon="megaphone" text={banner.text} style={styles.fullBleed} />
 
         <Card>
-          <Text style={styles.sectionTitle}>Your LPG connection</Text>
-          <DetailRow icon="person" label="LPG ID" value={connection.lpgId} divider />
-          <DetailRow icon="id-card-outline" label="Consumer number" value={connection.consumerNumber} divider />
+          <View style={styles.cardHeader}>
+            <Text style={styles.sectionTitle}>Your LPG connection</Text>
+            <StatusPill label="Linked" tone="success" icon="checkmark" />
+          </View>
+          <DetailRow iconTinted icon="card-outline" label="LPG ID" value={connection.lpgId} divider />
           <DetailRow
+            iconTinted
+            icon="person-outline"
+            label="Consumer number"
+            value={connection.consumerNumber}
+            divider
+          />
+          <DetailRow
+            iconTinted
             icon="calendar"
             label="Next eligible booking date"
             value={formatDate(nextEligibleAt)}
@@ -111,6 +131,7 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
           <Button
             label={canBook ? 'Request refill' : bookingLockLabel(daysLeft)}
             icon="call"
+            chevron
             disabled={!canBook}
             onPress={() => setRefillOpen(true)}
           />
@@ -119,6 +140,7 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
               label="Enter booking reference"
               icon="document-text-outline"
               variant="secondary"
+              chevron
               onPress={() => navigation.navigate('EnterBookingReference')}
             />
           ) : null}
@@ -131,6 +153,7 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
               <Button
                 label="View details"
                 variant="text"
+                trailingIcon="chevron-forward"
                 onPress={() => navigation.navigate('RequestStatus', { requestId: activeRequest.id })}
               />
             </View>
@@ -142,10 +165,12 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
           label="Raise a complaint"
           icon="chatbubble-ellipses-outline"
           variant="secondary"
+          chevron
           onPress={() =>
             navigation.navigate('ComplaintCategory', activeRequest ? { requestId: activeRequest.id } : undefined)
           }
         />
+        <TabBarSpacer />
       </ScrollView>
 
       <RequestRefillSheet
@@ -164,23 +189,16 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: color.background,
+  },
+  hero: {
+    alignSelf: 'flex-end',
+    marginTop: -theme.space.l,
+    marginBottom: -theme.space.s,
   },
   content: {
     padding: theme.space.m,
     gap: theme.space.m,
-  },
-  flex: {
-    flex: 1,
-  },
-  taglineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.space.m,
-  },
-  secondary: {
-    ...theme.type.body,
-    color: theme.color.textSecondary,
   },
   fullBleed: {
     marginHorizontal: -theme.space.m,

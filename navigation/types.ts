@@ -2,7 +2,10 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ComplaintCategoryId } from '../data/mock/mockLpg';
-import type { RegistrationDraft } from '../data/mock/mockOnboarding';
+import type {
+  RegistrationDraft,
+  VerifiedIdentity,
+} from '../data/mock/mockOnboarding';
 
 export type RootStackParamList = {
   Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
@@ -11,11 +14,13 @@ export type RootStackParamList = {
 
 export type OnboardingStackParamList = {
   PhoneEntry: undefined;
-  OtpEntry: { phone: string };
-  EmailEntry: { phone: string };
-  ProfileDetails: { phone: string; email: string };
+  PhoneOtp: { phone: string; txnId: string };
+  AadhaarEntry: { phone: string };
+  // Only the masked Aadhaar and an opaque reference travel through navigation — never the full number.
+  EmailEntry: { identity: VerifiedIdentity; phone: string };
+  ProfileDetails: { identity: VerifiedIdentity; phone: string; email: string };
   Consent: { draft: RegistrationDraft };
-  RegistrationComplete: { uid: string };
+  RegistrationComplete: { uid: string; maskedAadhaar: string };
 };
 
 export type MainTabsParamList = {
@@ -28,6 +33,8 @@ export type MainTabsParamList = {
 
 export type HomeStackParamList = {
   Home: undefined;
+  // Opened by tapping the UID chip on any tab.
+  Settings: undefined;
 };
 
 export type ServicesStackParamList = {
@@ -38,9 +45,13 @@ export type ServicesStackParamList = {
 };
 
 export type VanDhanStackParamList = {
-  // Set by LogCollection on submit; VanDhanHome shows a Toast and clears it.
-  VanDhanHome: { confirmation?: 'collection_logged' } | undefined;
+  // Set by LogCollection or VanDhanRegistration on submit; VanDhanHome shows a Toast and clears it.
+  VanDhanHome: { confirmation?: 'registered' } | undefined;
+  // Registration gate: shown until isRegistered in mockVanDhan.ts.
+  VanDhanRegistration: undefined;
   LogCollection: undefined;
+  // Replaces LogCollection once a collection is logged; back returns to VanDhanHome.
+  CollectionSubmitted: { collectionId: string };
   SchedulePickup: undefined;
   PickupDetails: { pickupId: string };
   KendraInfo: undefined;
@@ -55,6 +66,10 @@ export type LivestockStackParamList = {
 export type LpgStackParamList = {
   // RequestRefillSheet is a modal, not a route, so Home reaches it via this flag.
   LpgHome: { openRefillSheet?: boolean } | undefined;
+  // Registration gate: shown until isRegistered in mockLpg.ts.
+  LpgRegistration: undefined;
+  // Success screen that replaces LpgRegistration once the connection is registered.
+  LpgConnectionLinked: undefined;
   EnterBookingReference: undefined;
   // Omitted requestId shows the latest request (Home's "View Details").
   RequestStatus: { requestId?: string } | undefined;
@@ -120,8 +135,15 @@ export type RecordsScreenProps<T extends keyof RecordsStackParamList> = Composit
   BottomTabScreenProps<MainTabsParamList>
 >;
 
-export type NoticesScreenProps<T extends keyof NoticesStackParamList> =
-  NativeStackScreenProps<NoticesStackParamList, T>;
+export type AskUsScreenProps<T extends keyof AskUsStackParamList> = CompositeScreenProps<
+  NativeStackScreenProps<AskUsStackParamList, T>,
+  BottomTabScreenProps<MainTabsParamList>
+>;
+
+export type NoticesScreenProps<T extends keyof NoticesStackParamList> = CompositeScreenProps<
+  NativeStackScreenProps<NoticesStackParamList, T>,
+  BottomTabScreenProps<MainTabsParamList>
+>;
 
 export type SheetProps = {
   visible: boolean;

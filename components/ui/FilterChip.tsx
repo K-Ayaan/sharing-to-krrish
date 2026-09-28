@@ -3,6 +3,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Pressable, Text, ViewStyle } from 'react-native';
 import theme from '../../theme';
+import AppIcon, { type AppIconName } from './AppIcon';
+import { useAppearance } from './Appearance';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -10,7 +12,7 @@ export type FilterChipProps = {
   label: string;
   selected: boolean;
   onPress: () => void;
-  icon?: IconName;
+  icon?: AppIconName;
   /** Defaults to the chip's label color. */
   iconColor?: string;
   /** e.g. "chevron-down" for a chip that opens a picker. */
@@ -30,7 +32,8 @@ export default function FilterChip({
   onRemove,
   style,
 }: FilterChipProps) {
-  const labelColor = selected ? theme.color.primary : theme.color.textSecondary;
+  const { color } = useAppearance();
+  const labelColor = selected ? color.primary : color.textSecondary;
   const iconSize = theme.type.body.fontSize;
 
   return (
@@ -40,12 +43,14 @@ export default function FilterChip({
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
-        selected ? styles.selected : styles.unselected,
+        selected
+          ? { backgroundColor: color.primaryTint, borderColor: color.primary }
+          : { backgroundColor: color.surfaceMuted, borderColor: color.border },
         pressed && styles.pressed,
         style,
       ]}
     >
-      {icon ? <Ionicons name={icon} size={iconSize} color={iconColor ?? labelColor} /> : null}
+      {icon ? <AppIcon name={icon} size={iconSize} color={iconColor ?? labelColor} /> : null}
       <Text numberOfLines={1} style={[styles.label, { color: labelColor }]}>
         {label}
       </Text>
@@ -74,14 +79,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth * 2,
     paddingHorizontal: theme.space.m,
     paddingVertical: theme.space.s,
-  },
-  selected: {
-    backgroundColor: theme.color.primaryTint,
-    borderColor: theme.color.primary,
-  },
-  unselected: {
-    backgroundColor: theme.color.surfaceMuted,
-    borderColor: theme.color.border,
   },
   pressed: {
     opacity: 0.7,

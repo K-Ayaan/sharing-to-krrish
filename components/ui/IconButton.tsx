@@ -9,6 +9,10 @@ export type IconButtonProps = {
   accessibilityLabel: string;
   badgeCount?: number;
   color?: string;
+  /** A toggle's on state, announced to VoiceOver (e.g. the Notices bell's "Unread only"). */
+  selected?: boolean;
+  /** Fills the button with a circle of this colour (e.g. a copy button on a card). */
+  tint?: string;
   style?: ViewStyle;
 };
 
@@ -22,6 +26,8 @@ export default function IconButton({
   accessibilityLabel,
   badgeCount = 0,
   color = theme.color.textPrimary,
+  tint,
+  selected,
   style,
 }: IconButtonProps) {
   const hasBadge = badgeCount > 0;
@@ -30,11 +36,17 @@ export default function IconButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={selected === undefined ? undefined : { selected }}
       accessibilityLabel={hasBadge ? `${accessibilityLabel}, ${badgeCount} unread` : accessibilityLabel}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed, style]}
+      style={({ pressed }) => [
+        styles.button,
+        !!tint && [styles.tinted, { backgroundColor: tint }],
+        pressed && styles.pressed,
+        style,
+      ]}
     >
-      <Ionicons name={icon} size={theme.space.l + theme.space.xs} color={color} />
+      <Ionicons name={icon} size={tint ? theme.type.title.fontSize + theme.space.xs : theme.space.l + theme.space.xs} color={color} />
       {hasBadge ? (
         <View style={styles.badge}>
           <Text style={styles.badgeLabel}>{badgeLabel}</Text>
@@ -50,6 +62,11 @@ const styles = StyleSheet.create({
     height: HIT_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tinted: {
+    width: HIT_SIZE + theme.space.xs,
+    height: HIT_SIZE + theme.space.xs,
+    borderRadius: theme.radius.pill,
   },
   pressed: {
     opacity: 0.6,

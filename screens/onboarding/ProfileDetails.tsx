@@ -9,7 +9,7 @@ import theme from '../../theme';
 import OnboardingLayout from './OnboardingLayout';
 
 export default function ProfileDetails({ navigation, route }: OnboardingScreenProps<'ProfileDetails'>) {
-  const { phone, email } = route.params;
+  const { identity, phone, email } = route.params;
   const [fullName, setFullName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
   const [districtId, setDistrictId] = useState<string>();
@@ -24,15 +24,15 @@ export default function ProfileDetails({ navigation, route }: OnboardingScreenPr
     setNameTouched(true);
     if (!name || !districtId || !villageId) return;
     navigation.navigate('Consent', {
-      draft: { phone, email, fullName: name, districtId, villageId },
+      draft: { identity, phone, email, fullName: name, districtId, villageId },
     });
   };
 
   return (
     <OnboardingLayout
-      step={4}
+      step={5}
       title="Tell us about yourself"
-      subtitle="This helps us serve you better across all services."
+      subtitle="This helps us personalize your experience and connect you to the right services."
       onBack={() => navigation.goBack()}
       footer={
         <Button
@@ -45,40 +45,39 @@ export default function ProfileDetails({ navigation, route }: OnboardingScreenPr
     >
       <View style={styles.fields}>
         <TextField
+          accessibilityLabel="Full name"
           autoCapitalize="words"
           autoComplete="name"
           error={nameTouched ? nameError : undefined}
-          icon="person"
-          label="Full name"
+          icon="person-outline"
           onBlur={() => setNameTouched(true)}
           onChangeText={setFullName}
-          placeholder="Enter your full name"
-          required
+          placeholder="Full name"
           returnKeyType="done"
           textContentType="name"
           value={fullName}
         />
         <SelectField
-          icon="location"
+          icon="location-outline"
           label="District"
+          labelHidden
           onSelect={(id) => {
             setDistrictId(id);
             setVillageId(undefined);
           }}
           options={mockDistricts}
-          placeholder="Select district"
-          required
+          placeholder="Select your district"
           selectedId={districtId}
           sheetTitle="Select district"
         />
         <SelectField
           disabled={!districtId}
-          icon="home"
+          icon="home-outline"
           label="Village"
+          labelHidden
           onSelect={setVillageId}
           options={villages}
-          placeholder={districtId ? 'Select village' : 'Select a district first'}
-          required
+          placeholder="Select your village"
           selectedId={villageId}
           sheetTitle="Select village"
         />

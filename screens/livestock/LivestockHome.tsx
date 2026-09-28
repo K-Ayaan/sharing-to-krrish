@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import AlertCard from '../../components/ui/AlertCard';
 import Button from '../../components/ui/Button';
@@ -6,9 +6,11 @@ import Card from '../../components/ui/Card';
 import FilterChip from '../../components/ui/FilterChip';
 import IconButton from '../../components/ui/IconButton';
 import RunningBanner from '../../components/ui/RunningBanner';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
+import ServiceHeader from '../../components/ui/ServiceHeader';
 import StockCard from '../../components/ui/StockCard';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import TextField from '../../components/ui/TextField';
-import Thumbnail from '../../components/ui/Thumbnail';
 import {
   acknowledgeAlert,
   getActiveAlerts,
@@ -22,12 +24,25 @@ import type { LivestockScreenProps } from '../../navigation/types';
 import theme from '../../theme';
 import { pillarMeta } from '../pillarMeta';
 import { useUnreadNoticeCount } from '../useUnreadNoticeCount';
-import { quantityLabel, sexName, speciesName, weightName } from './livestockFormat';
+import {
+  quantityLabel,
+  sexName,
+  sortOptions,
+  sortStock,
+  speciesIcon,
+  speciesName,
+  weightName,
+  WEIGHT_ICON,
+  type StockSort,
+} from './livestockFormat';
 import SelectSexSheet from './SelectSexSheet';
 import SelectSpeciesSheet from './SelectSpeciesSheet';
 import SelectWeightSheet from './SelectWeightSheet';
+import SortSheet from './SortSheet';
 
-type FilterSheetName = 'species' | 'sex' | 'weight';
+type FilterSheetName = 'species' | 'sex' | 'weight' | 'sort';
+
+const { color } = theme.livestock;
 
 const COLUMNS = 2;
 
@@ -36,28 +51,15 @@ const chipLabel = (base: string, count: number) => (count > 0 ? `${base} (${coun
 const without = <T,>(values: T[], value: T) => values.filter((item) => item !== value);
 
 export default function LivestockHome({ navigation }: LivestockScreenProps<'LivestockHome'>) {
-  const { tagline, banner, stock } = mockLivestockHome;
+  const { banner, stock } = mockLivestockHome;
   const unreadNotificationCount = useUnreadNoticeCount();
   const [alerts, setAlerts] = useState(getActiveAlerts);
   const [query, setQuery] = useState('');
   const [species, setSpecies] = useState<Species[]>([]);
   const [sexes, setSexes] = useState<Sex[]>([]);
   const [weights, setWeights] = useState<WeightBand[]>([]);
+  const [sort, setSort] = useState<StockSort>('availability');
   const [sheet, setSheet] = useState<FilterSheetName | null>(null);
-
-  // Pillar-home rule (flow.md): native large title, visible back chevron, bell in the header.
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <IconButton
-          icon="notifications-outline"
-          badgeCount={unreadNotificationCount}
-          accessibilityLabel="Notifications"
-          onPress={() => navigation.navigate('NoticesTab', { screen: 'Notices', pop: true })}
-        />
-      ),
-    });
-  }, [navigation, unreadNotificationCount]);
 
   const acknowledge = async (id: string) => {
     await acknowledgeAlert(id);
@@ -66,7 +68,7 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
 
   const results = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return stock.filter(
+    const matching = stock.filter(
       (item) =>
         (species.length === 0 || species.includes(item.species)) &&
         (sexes.length === 0 || sexes.includes(item.sex)) &&
@@ -76,7 +78,8 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
             field.toLowerCase().includes(normalizedQuery)
           ))
     );
-  }, [stock, query, species, sexes, weights]);
+    return sortStock(matching, sort);
+  }, [stock, query, species, sexes, weights, sort]);
 
   const rows = useMemo(() => {
     const grouped: StockItem[][] = [];
@@ -117,22 +120,29 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
 
   return (
     <View style={styles.screen}>
+      <ScenicBackdrop />
+      <ServiceHeader
+        title={pillarMeta.livestock.label}
+        icon={pillarMeta.livestock.icon}
+        iconColor={pillarMeta.livestock.colors.icon}
+        tint={pillarMeta.livestock.colors.tint}
+        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+        trailing={
+          <IconButton
+            icon="notifications-outline"
+            badgeCount={unreadNotificationCount}
+            accessibilityLabel="Notifications"
+            tint={color.surface}
+            onPress={() => navigation.navigate('NoticesTab', { screen: 'Notices', pop: true })}
+          />
+        }
+      />
       <ScrollView
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.taglineRow}>
-          <Text style={[styles.secondary, styles.flex]}>{tagline}</Text>
-          <Thumbnail
-            uri={null}
-            fallbackIcon={pillarMeta.livestock.icon}
-            iconColor={pillarMeta.livestock.colors.icon}
-            tint={pillarMeta.livestock.colors.tint}
-          />
-        </View>
-
         <RunningBanner tone="info" icon="megaphone" text={banner.text} style={styles.fullBleed} />
 
         {alerts.map((alert) => (
@@ -158,18 +168,24 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
         <View style={styles.chipRow}>
           <FilterChip
             label={chipLabel('Species', species.length)}
+            icon={pillarMeta.livestock.icon}
+            iconColor={color.primary}
             trailingIcon="chevron-down"
             selected={species.length > 0}
             onPress={() => setSheet('species')}
           />
           <FilterChip
             label={chipLabel('Sex', sexes.length)}
+            icon="female-outline"
+            iconColor={color.primary}
             trailingIcon="chevron-down"
             selected={sexes.length > 0}
             onPress={() => setSheet('sex')}
           />
           <FilterChip
             label={chipLabel('Weight', weights.length)}
+            icon={WEIGHT_ICON}
+            iconColor={color.primary}
             trailingIcon="chevron-down"
             selected={weights.length > 0}
             onPress={() => setSheet('weight')}
@@ -191,9 +207,19 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
           </View>
         ) : null}
 
-        <Text style={styles.resultCount}>
-          {results.length} {results.length === 1 ? 'result' : 'results'}
-        </Text>
+        <View style={styles.resultsRow}>
+          <Text style={styles.resultCount}>
+            {results.length} {results.length === 1 ? 'result' : 'results'}
+          </Text>
+          <FilterChip
+            label={`Sort by: ${sortOptions.find((option) => option.id === sort)?.name ?? ''}`}
+            icon="swap-vertical"
+            iconColor={color.textPrimary}
+            trailingIcon="chevron-down"
+            selected={false}
+            onPress={() => setSheet('sort')}
+          />
+        </View>
 
         {results.length === 0 ? (
           <Card>
@@ -210,7 +236,7 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
                   quantityLabel={quantityLabel(item.quantityAvailable)}
                   locationLabel={item.centre.name}
                   imageUrl={item.photos[0]?.url ?? null}
-                  fallbackIcon={pillarMeta.livestock.icon}
+                  fallbackIcon={speciesIcon[item.species]}
                   fallbackIconColor={pillarMeta.livestock.colors.icon}
                   fallbackTint={pillarMeta.livestock.colors.tint}
                   onPress={() => navigation.navigate('StockDetails', { stockId: item.id })}
@@ -220,6 +246,7 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
             </View>
           ))
         )}
+        <TabBarSpacer />
       </ScrollView>
 
       <SelectSpeciesSheet
@@ -240,6 +267,7 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
         }}
         onClose={closeSheet}
       />
+      <SortSheet visible={sheet === 'sort'} selected={sort} onSelect={setSort} onClose={closeSheet} />
       <SelectWeightSheet
         visible={sheet === 'weight'}
         selected={weights}
@@ -256,7 +284,13 @@ export default function LivestockHome({ navigation }: LivestockScreenProps<'Live
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: color.background,
+  },
+  resultsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.space.s,
   },
   content: {
     padding: theme.space.m,
@@ -264,15 +298,6 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
-  },
-  taglineRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.space.m,
-  },
-  secondary: {
-    ...theme.type.body,
-    color: theme.color.textSecondary,
   },
   fullBleed: {
     marginHorizontal: -theme.space.m,

@@ -3,6 +3,7 @@ import { Linking } from 'react-native';
 // Every call or message leaves the app for its native handler — no in-app calls (CLAUDE.md).
 
 export const CALL_UNAVAILABLE = "Calling isn't available on this device.";
+export const MAPS_UNAVAILABLE = "Maps isn't available on this device.";
 export const WHATSAPP_UNAVAILABLE = "WhatsApp isn't installed on this device.";
 
 async function openExternal(url: string): Promise<boolean> {
@@ -20,6 +21,10 @@ export const openPhone = (phone: string) => openExternal(`tel:${phone}`);
 /** Resolves false when WhatsApp isn't installed. `phone` may include "+" and spaces. */
 export const openWhatsApp = (phone: string, message: string) =>
   openExternal(`whatsapp://send?phone=${phone.replace(/\D/g, '')}&text=${encodeURIComponent(message)}`);
+
+/** Hands off to Apple Maps — there is no in-app map screen. Resolves false if Maps can't open. */
+export const openMaps = (query: string) =>
+  openExternal(`https://maps.apple.com/?q=${encodeURIComponent(query)}`);
 
 const INDIAN_MOBILE = /^\+91(\d{5})(\d{5})$/;
 

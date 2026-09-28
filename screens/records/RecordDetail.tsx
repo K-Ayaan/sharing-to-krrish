@@ -1,18 +1,31 @@
-import type { Ionicons } from '@expo/vector-icons';
-import { useLayoutEffect } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Avatar from '../../components/ui/Avatar';
+import { ReactNode, useLayoutEffect, useReducer, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { AppIconName } from '../../components/ui/AppIcon';
+import { AppearanceProvider, type AppearanceName } from '../../components/ui/Appearance';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import DetailRow from '../../components/ui/DetailRow';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
 import StatusPill from '../../components/ui/StatusPill';
 import StatusTracker from '../../components/ui/StatusTracker';
-import { getStockItem } from '../../data/mock/mockLivestock';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
+import Thumbnail from '../../components/ui/Thumbnail';
+import Toast from '../../components/ui/Toast';
+import { enquiryMessage, getStockItem } from '../../data/mock/mockLivestock';
+import { COUNTRY_CODE } from '../../data/mock/mockOnboarding';
+import type { Pillar } from '../../data/mock/mockUser';
+import {
+  cancelCollection,
+  cancelPickup,
+  canCancelCollection,
+  canCancelPickup,
+} from '../../data/mock/mockVanDhan';
 import type { RecordsScreenProps } from '../../navigation/types';
 import theme from '../../theme';
 import { formatDate, formatDateTime } from '../formatDate';
-import { sexName, speciesIcon, speciesName, weightName } from '../livestock/livestockFormat';
+import { enquiryLabels, sexName, speciesIcon, speciesName, weightName } from '../livestock/livestockFormat';
 import { formatDateRange, requestSteps, urgencyLabel } from '../lpg/lpgFormat';
+import { formatPhone } from '../onboarding/formatPhone';
 import { pillarMeta } from '../pillarMeta';
 import { grievanceSteps, pickupSteps } from '../vandhan/vanDhanFormat';
 import {
@@ -26,9 +39,21 @@ import {
   type AppRecord,
 } from './recordSource';
 
-type IconName = keyof typeof Ionicons.glyphMap;
-type Fact = { icon: IconName; label: string; value: string; detail?: string };
+type Fact = { icon: AppIconName; label: string; value: string; detail?: string };
 type Navigation = RecordsScreenProps<'RecordDetail'>['navigation'];
+
+/** Each record's detail page takes its pillar's redesigned look (redesign batch 6). */
+const PILLAR_APPEARANCE: Record<Pillar, AppearanceName> = {
+  vandhan: 'vandhan',
+  livestock: 'livestock',
+  lpg: 'lpg',
+};
+
+const PILLAR_PALETTE = {
+  vandhan: theme.vandhan.color,
+  livestock: theme.livestock.color,
+  lpg: theme.lpg.color,
+} as const;
 
 const COLLECTION_TYPE_LABELS = {
   bringing_now: 'Bringing it now',
@@ -41,6 +66,7 @@ function FactList({ facts }: { facts: Fact[] }) {
       {facts.map((fact, index) => (
         <DetailRow
           key={fact.label}
+          iconTinted
           icon={fact.icon}
           label={fact.label}
           value={fact.value}
@@ -52,129 +78,200 @@ function FactList({ facts }: { facts: Fact[] }) {
   );
 }
 
-// One renderer per record type. There is deliberately no HealthCertificate case (flow.md).
-function RecordBody({ record }: { record: AppRecord }) {
+type RecordContent = {
+  /** Progress shown under the heading in the header card. */
+  tracker?: ReactNode;
+  facts: Fact[];
+};
+
+// One description per record type. There is deliberately no HealthCertificate case (flow.md).
+// Every fact the record carries is kept; "Category" leads and "Submitted on" dates it, as in the
+// redesigned detail pages.
+function recordContent(record: AppRecord, category: string): RecordContent {
+  const categoryFact: Fact = { icon: 'alert-circle-outline', label: 'Category', value: category };
+
   switch (record.kind) {
     case 'vandhan_collection': {
       const log = record.data;
-      return (
-        <FactList
-          facts={[
-            { icon: 'leaf', label: 'Produce', value: produceName(log.produceId) },
-            { icon: 'scale-outline', label: 'Quantity', value: `${log.quantity} ${log.unit}` },
-            { icon: 'car', label: 'Collection type', value: COLLECTION_TYPE_LABELS[log.type] },
-            ...(log.note ? [{ icon: 'create-outline' as const, label: 'Note', value: log.note }] : []),
-            { icon: 'time', label: 'Logged on', value: formatDateTime(log.loggedAt) },
-          ]}
-        />
-      );
+      return {
+        facts: [
+          categoryFact,
+          ...(log.note ? [{ icon: 'document-text-outline' as const, label: 'Description', value: log.note }] : []),
+          { icon: 'leaf', label: 'Produce', value: produceName(log.produceId) },
+          { icon: 'cube-outline', label: 'Quantity', value: `${log.quantity} ${log.unit}` },
+          { icon: 'car', label: 'Collection type', value: COLLECTION_TYPE_LABELS[log.type] },
+          { icon: 'calendar-outline', label: 'Submitted on', value: formatDateTime(log.loggedAt) },
+          ...(log.cancelledAt
+            ? [{ icon: 'close-circle' as const, label: 'Cancelled on', value: formatDateTime(log.cancelledAt) }]
+            : []),
+        ],
+      };
     }
     case 'vandhan_pickup': {
       const pickup = record.data;
-      return (
-        <>
-          <StatusTracker steps={pickupSteps(pickup, 'dateTime')} />
-          <FactList
-            facts={[
-              { icon: 'calendar', label: 'Scheduled for', value: formatDate(pickup.scheduledFor) },
-              {
-                icon: 'home',
-                label: 'Address',
-                value: pickup.address.village,
-                detail: `${pickup.address.district}, ${pickup.address.state}`,
-              },
-              ...(pickup.notes ? [{ icon: 'create-outline' as const, label: 'Notes', value: pickup.notes }] : []),
-            ]}
-          />
-        </>
-      );
+      return {
+        tracker: pickup.cancelledAt ? undefined : <StatusTracker steps={pickupSteps(pickup, 'dateTime')} />,
+        facts: [
+          categoryFact,
+          ...(pickup.notes
+            ? [{ icon: 'document-text-outline' as const, label: 'Description', value: pickup.notes }]
+            : []),
+          {
+            icon: 'leaf',
+            label: 'Produce',
+            value: produceName(pickup.produceId),
+            detail: `${pickup.quantity} ${pickup.unit}`,
+          },
+          { icon: 'calendar', label: 'Scheduled for', value: formatDate(pickup.scheduledFor) },
+          {
+            icon: 'home',
+            label: 'Address',
+            value: pickup.address.village,
+            detail: `${pickup.address.district}, ${pickup.address.state}`,
+          },
+          { icon: 'calendar-outline', label: 'Submitted on', value: formatDateTime(pickup.requestedAt) },
+          ...(pickup.cancelledAt
+            ? [{ icon: 'close-circle' as const, label: 'Cancelled on', value: formatDateTime(pickup.cancelledAt) }]
+            : []),
+        ],
+      };
     }
     case 'vandhan_grievance': {
       const grievance = record.data;
-      return (
-        <>
-          <FactList
-            facts={[
-              { icon: 'chatbubble-ellipses', label: 'Subject', value: grievance.subject },
-              { icon: 'time', label: 'Submitted on', value: formatDateTime(grievance.submittedAt) },
-            ]}
-          />
-          <StatusTracker orientation="vertical" steps={grievanceSteps(grievance)} />
-        </>
-      );
+      return {
+        tracker: <StatusTracker orientation="vertical" steps={grievanceSteps(grievance)} />,
+        facts: [
+          categoryFact,
+          { icon: 'document-text-outline', label: 'Description', value: grievance.subject },
+          { icon: 'calendar-outline', label: 'Submitted on', value: formatDateTime(grievance.submittedAt) },
+        ],
+      };
     }
     case 'livestock_enquiry': {
       const enquiry = record.data;
       const stock = getStockItem(enquiry.stockId);
-      const stockFacts: Fact[] = stock
-        ? [
-            {
-              icon: speciesIcon[stock.species],
-              label: 'Stock',
-              value: `${speciesName(stock.species)} · ${sexName(stock.sex)}`,
-              detail: weightName(stock.weightBand),
-            },
-            { icon: 'location', label: 'Collection centre', value: stock.centre.name },
-          ]
-        : [];
-      return (
-        <FactList
-          facts={[
-            { icon: 'pricetag-outline', label: 'Stock ID', value: enquiry.stockId },
-            ...stockFacts,
-            {
-              icon: enquiry.channel === 'call' ? 'call' : 'logo-whatsapp',
-              label: 'Enquired by',
-              value: enquiryChannelLabel[enquiry.channel],
-            },
-            { icon: 'time', label: 'Enquired on', value: formatDateTime(enquiry.enquiredAt) },
-          ]}
-        />
-      );
+      return {
+        facts: [
+          categoryFact,
+          // The message the enquiry opened with — the same text StockDetails prefills for WhatsApp.
+          ...(stock
+            ? [
+                {
+                  icon: 'document-text-outline' as const,
+                  label: 'Description',
+                  value: enquiryMessage(stock, enquiryLabels(stock)),
+                },
+              ]
+            : []),
+          { icon: 'pricetag-outline', label: 'Stock ID', value: enquiry.stockId },
+          ...(stock
+            ? [
+                {
+                  icon: speciesIcon[stock.species],
+                  label: 'Stock',
+                  value: `${speciesName(stock.species)} · ${sexName(stock.sex)}`,
+                  detail: weightName(stock.weightBand),
+                },
+                { icon: 'location' as const, label: 'Collection centre', value: stock.centre.name },
+              ]
+            : []),
+          {
+            icon: enquiry.channel === 'call' ? 'call' : 'logo-whatsapp',
+            label: 'Enquired by',
+            value: enquiryChannelLabel[enquiry.channel],
+          },
+          { icon: 'calendar-outline', label: 'Submitted on', value: formatDateTime(enquiry.enquiredAt) },
+        ],
+      };
     }
     case 'lpg_refill': {
       const request = record.data;
       const deliveredAt = request.stageTimes.delivered;
-      return (
-        <>
-          <StatusTracker steps={requestSteps(request, 'dateTime')} />
-          <FactList
-            facts={[
-              { icon: 'document-text', label: 'Booking reference', value: request.bookingReference },
-              { icon: 'calendar', label: 'Booked on', value: formatDate(request.bookedAt) },
-              { icon: 'flame', label: 'Urgency', value: urgencyLabel[request.urgency] },
-              deliveredAt
-                ? { icon: 'car', label: 'Delivered', value: formatDate(deliveredAt) }
-                : {
-                    icon: 'car',
-                    label: 'Expected delivery',
-                    value: formatDateRange(request.expectedDelivery.from, request.expectedDelivery.to),
-                    detail: '(Estimated)',
-                  },
-            ]}
-          />
-        </>
-      );
+      return {
+        tracker: <StatusTracker steps={requestSteps(request, 'dateTime')} />,
+        facts: [
+          categoryFact,
+          { icon: 'document-text-outline', label: 'Refill request', value: `Ref: ${request.bookingReference}` },
+          { icon: 'flame', label: 'Urgency', value: urgencyLabel[request.urgency] },
+          deliveredAt
+            ? { icon: 'car', label: 'Delivered', value: formatDate(deliveredAt) }
+            : {
+                icon: 'car',
+                label: 'Expected delivery',
+                value: formatDateRange(request.expectedDelivery.from, request.expectedDelivery.to),
+                detail: '(Estimated)',
+              },
+          { icon: 'calendar-outline', label: 'Submitted on', value: formatDateTime(request.bookedAt) },
+        ],
+      };
     }
     case 'lpg_complaint': {
       const complaint = record.data;
       const linked = getRecords().find(
         (other) => other.kind === 'lpg_refill' && other.data.id === complaint.requestId
       );
-      return (
-        <FactList
-          facts={[
-            { icon: 'alert-circle-outline', label: 'Category', value: complaintCategoryName(complaint) },
-            { icon: 'create-outline', label: 'Description', value: complaint.description ?? 'No description given' },
-            ...(linked && linked.kind === 'lpg_refill'
-              ? [{ icon: 'document-text' as const, label: 'Refill request', value: linked.data.bookingReference }]
+      return {
+        facts: [
+          { icon: 'alert-circle-outline', label: 'Category', value: complaintCategoryName(complaint) },
+          { icon: 'document-text-outline', label: 'Description', value: complaint.description },
+          ...(linked && linked.kind === 'lpg_refill'
+            ? [{ icon: 'document-text' as const, label: 'Refill request', value: `Ref: ${linked.data.bookingReference}` }]
+            : complaint.bookingReference
+              ? [{ icon: 'document-text' as const, label: 'Booking reference', value: complaint.bookingReference }]
               : []),
-            { icon: 'time', label: 'Submitted on', value: formatDateTime(complaint.submittedAt) },
-          ]}
-        />
-      );
+          {
+            icon: complaint.contactMethod === 'call' ? 'call' : 'chatbubble-ellipses-outline',
+            label: 'Contact by',
+            value: complaint.contactMethod === 'call' ? 'Phone call' : 'SMS',
+            detail: `${COUNTRY_CODE} ${formatPhone(complaint.contactPhone)}`,
+          },
+          ...(complaint.photoUris.length > 0
+            ? [{ icon: 'image-outline' as const, label: 'Photos', value: `${complaint.photoUris.length} attached` }]
+            : []),
+          { icon: 'calendar-outline', label: 'Submitted on', value: formatDateTime(complaint.submittedAt) },
+        ],
+      };
     }
   }
+}
+
+type Cancellation = {
+  label: string;
+  confirmTitle: string;
+  confirmMessage: string;
+  done: string;
+  run: () => Promise<unknown>;
+};
+
+// Van Dhan pickups (until collected) and collection logs can be withdrawn from Records.
+// Livestock enquiries and LPG records have no cancellation yet.
+function cancellationFor(record: AppRecord): Cancellation | null {
+  switch (record.kind) {
+    case 'vandhan_pickup':
+      if (!canCancelPickup(record.data)) return null;
+      return {
+        label: 'Cancel pickup request',
+        confirmTitle: 'Cancel this pickup?',
+        confirmMessage: "The kendra won't visit for this request. You can schedule a new pickup any time.",
+        done: 'Pickup request cancelled',
+        run: () => cancelPickup(record.data.id),
+      };
+    case 'vandhan_collection':
+      if (!canCancelCollection(record.data)) return null;
+      return {
+        label: 'Cancel collection',
+        confirmTitle: 'Cancel this collection?',
+        confirmMessage: 'It will be withdrawn from your kendra. You can log a new collection any time.',
+        done: 'Collection cancelled',
+        run: () => cancelCollection(record.data.id),
+      };
+    default:
+      return null;
+  }
+}
+
+function LinkButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return <Button label={label} icon="open-outline" trailingIcon="arrow-forward" variant="secondary" onPress={onPress} />;
 }
 
 // Reuses the pillar's own detail screen where one exists (flow.md). Every level passes
@@ -183,10 +280,8 @@ function PillarLink({ record, navigation }: { record: AppRecord; navigation: Nav
   switch (record.kind) {
     case 'vandhan_pickup':
       return (
-        <Button
+        <LinkButton
           label="Open in Van Dhan"
-          variant="secondary"
-          trailingIcon="arrow-forward"
           onPress={() =>
             navigation.navigate('ServicesTab', {
               screen: 'VanDhanStack',
@@ -199,10 +294,8 @@ function PillarLink({ record, navigation }: { record: AppRecord; navigation: Nav
       );
     case 'vandhan_grievance':
       return (
-        <Button
+        <LinkButton
           label="Open in Van Dhan"
-          variant="secondary"
-          trailingIcon="arrow-forward"
           onPress={() =>
             navigation.navigate('ServicesTab', {
               screen: 'VanDhanStack',
@@ -217,10 +310,8 @@ function PillarLink({ record, navigation }: { record: AppRecord; navigation: Nav
       const { stockId } = record.data;
       if (!getStockItem(stockId)) return null;
       return (
-        <Button
+        <LinkButton
           label="View stock"
-          variant="secondary"
-          trailingIcon="arrow-forward"
           onPress={() =>
             navigation.navigate('ServicesTab', {
               screen: 'LivestockStack',
@@ -237,10 +328,8 @@ function PillarLink({ record, navigation }: { record: AppRecord; navigation: Nav
       const requestId = record.kind === 'lpg_refill' ? record.data.id : record.data.requestId;
       if (!requestId) return null;
       return (
-        <Button
+        <LinkButton
           label={record.kind === 'lpg_refill' ? 'Open in LPG' : 'View related refill request'}
-          variant="secondary"
-          trailingIcon="arrow-forward"
           onPress={() =>
             navigation.navigate('ServicesTab', {
               screen: 'LpgStack',
@@ -261,10 +350,19 @@ function PillarLink({ record, navigation }: { record: AppRecord; navigation: Nav
 export default function RecordDetail({ navigation, route }: RecordsScreenProps<'RecordDetail'>) {
   const record = getRecord(route.params.recordId);
   const summary = record ? summarize(record) : null;
+  const [toast, setToast] = useState<string | null>(null);
+  // The mock mutates in place, so re-read the record after cancelling.
+  const [, refresh] = useReducer((count: number) => count + 1, 0);
+  const palette = summary ? PILLAR_PALETTE[summary.pillar] : theme.color;
 
+  // Title per record type; the header takes the pillar's page colour and a dark back button.
   useLayoutEffect(() => {
-    if (summary) navigation.setOptions({ title: summary.title });
-  }, [navigation, summary?.title]);
+    navigation.setOptions({
+      ...(summary ? { title: summary.title } : {}),
+      headerStyle: { backgroundColor: palette.background },
+      headerTintColor: palette.textPrimary,
+    });
+  }, [navigation, summary?.title, palette]);
 
   if (!record || !summary) {
     return (
@@ -277,32 +375,74 @@ export default function RecordDetail({ navigation, route }: RecordsScreenProps<'
   }
 
   const meta = pillarMeta[summary.pillar];
+  const cancellation = cancellationFor(record);
+  const content = recordContent(record, summary.title);
+
+  // Destructive, so it always goes through a confirmation first (as Settings' "Log out" does).
+  const confirmCancel = (action: Cancellation) =>
+    Alert.alert(action.confirmTitle, action.confirmMessage, [
+      { text: 'Keep it', style: 'cancel' },
+      {
+        text: action.label,
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await action.run();
+            setToast(action.done);
+          } catch (failure) {
+            setToast(failure instanceof Error ? failure.message : "Couldn't cancel. Please try again.");
+          } finally {
+            refresh();
+          }
+        },
+      },
+    ]);
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={styles.content}
-      style={styles.screen}
-    >
-      <Card style={styles.section}>
-        <View style={styles.headerRow}>
-          <Avatar icon={meta.icon} iconColor={meta.colors.icon} tint={meta.colors.tint} size="l" />
-          <View style={styles.flex}>
-            <Text style={styles.caption}>{meta.label}</Text>
-            <Text accessibilityRole="header" style={styles.title}>
-              {summary.title}
-            </Text>
-            <Text selectable style={styles.secondary}>
-              {summary.subtitle}
-            </Text>
-          </View>
-          <StatusPill label={summary.status.label} tone={summary.status.tone} />
-        </View>
-        <RecordBody key={recordIdOf(record)} record={record} />
-      </Card>
+    <AppearanceProvider appearance={PILLAR_APPEARANCE[summary.pillar]}>
+      <View style={[styles.screen, { backgroundColor: palette.background }]}>
+        {/* Behind the whole page, not inside the scroll content, so it always spans the full screen
+            (this header has no large title, so the ScrollView needn't be the first view). */}
+        <ScenicBackdrop />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+          <Card elevated style={styles.section}>
+            <View style={styles.headerRow}>
+              <Thumbnail uri={null} fallbackIcon={meta.icon} iconColor={meta.colors.icon} tint={meta.colors.tint} size="l" />
+              <View style={styles.flex}>
+                <Text style={styles.caption}>{meta.label}</Text>
+                <Text accessibilityRole="header" style={styles.title}>
+                  {summary.title}
+                </Text>
+                <Text selectable style={styles.secondary}>
+                  {summary.subtitle}
+                </Text>
+              </View>
+              <StatusPill label={summary.status.label} tone={summary.status.tone} />
+            </View>
+            {content.tracker}
+          </Card>
 
-      <PillarLink record={record} navigation={navigation} />
-    </ScrollView>
+          <Card elevated>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>
+              Details
+            </Text>
+            <FactList key={recordIdOf(record)} facts={content.facts} />
+          </Card>
+
+          <PillarLink record={record} navigation={navigation} />
+          {cancellation ? (
+            <Button
+              label={cancellation.label}
+              icon="close-circle-outline"
+              variant="danger"
+              onPress={() => confirmCancel(cancellation)}
+            />
+          ) : null}
+          <TabBarSpacer />
+        </ScrollView>
+        <Toast visible={toast !== null} message={toast ?? ''} onHide={() => setToast(null)} />
+      </View>
+    </AppearanceProvider>
   );
 }
 
@@ -312,6 +452,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.background,
   },
   content: {
+    // Fill at least the screen, so the backdrop inside the scroll content reaches the bottom.
+    flexGrow: 1,
     padding: theme.space.m,
     gap: theme.space.m,
   },
@@ -327,12 +469,19 @@ const styles = StyleSheet.create({
     gap: theme.space.m,
   },
   caption: {
-    ...theme.type.caption,
+    ...theme.type.body,
     color: theme.color.textSecondary,
   },
   title: {
     ...theme.type.title,
+    fontSize: theme.type.title.fontSize + theme.space.xs,
+    fontWeight: '800',
     color: theme.color.textPrimary,
+  },
+  sectionTitle: {
+    ...theme.type.headline,
+    color: theme.color.textPrimary,
+    paddingBottom: theme.space.s,
   },
   secondary: {
     ...theme.type.body,

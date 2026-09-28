@@ -1,46 +1,39 @@
-import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import Avatar from '../../components/ui/Avatar';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
-import Checkbox from '../../components/ui/Checkbox';
-import { consentDocument, submitRegistration } from '../../data/mock/mockOnboarding';
+import ConsentCard from '../../components/ui/ConsentCard';
+import { ConsentItem, consentDocument, submitRegistration } from '../../data/mock/mockOnboarding';
 import type { OnboardingScreenProps } from '../../navigation/types';
 import theme from '../../theme';
 import OnboardingLayout from './OnboardingLayout';
 
-const END_TOLERANCE = theme.space.m;
-const SCROLL_THROTTLE_MS = 16;
+const { color } = theme.onboarding;
 
+type Consents = Record<ConsentItem['id'], boolean>;
+
+const NONE_GIVEN = Object.fromEntries(consentDocument.items.map((item) => [item.id, false])) as Consents;
+
+// Step 6. Each consent statement is ticked on its own card; every one is required to continue.
 export default function Consent({ navigation, route }: OnboardingScreenProps<'Consent'>) {
-  const [reachedEnd, setReachedEnd] = useState(false);
-  const [agreed, setAgreed] = useState(false);
+  const { draft } = route.params;
+  const [consents, setConsents] = useState<Consents>(NONE_GIVEN);
   const [submitting, setSubmitting] = useState(false);
-  const viewportHeight = useRef(0);
-  const contentHeight = useRef(0);
 
-  // reachedEnd only ever flips to true here: when the visible window touches the
-  // end of the copy, or the copy is short enough to fit without scrolling.
-  const markEndIfVisible = (offsetY: number) => {
-    if (viewportHeight.current === 0 || contentHeight.current === 0) return;
-    if (offsetY + viewportHeight.current >= contentHeight.current - END_TOLERANCE) {
-      setReachedEnd(true);
-    }
-  };
+  const allGiven = consentDocument.items.every((item) => consents[item.id]);
+  const canContinue = allGiven && !submitting;
 
-  const canAgree = reachedEnd && agreed && !submitting;
-
-  const hint = !reachedEnd
-    ? 'Please scroll to the end to enable this button.'
-    : !agreed
-      ? 'Tick the box above to give your consent.'
-      : null;
-
-  const handleAgree = async () => {
-    if (!canAgree) return;
+  const handleContinue = async () => {
+    if (!canContinue) return;
     setSubmitting(true);
     try {
-      const { uid } = await submitRegistration(route.params.draft);
-      navigation.navigate('RegistrationComplete', { uid });
+      // Registration maps the new account to the verified Aadhaar reference.
+      const { uid } = await submitRegistration(draft);
+      navigation.navigate('RegistrationComplete', {
+        uid,
+        maskedAadhaar: draft.identity.maskedAadhaar,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -48,68 +41,52 @@ export default function Consent({ navigation, route }: OnboardingScreenProps<'Co
 
   return (
     <OnboardingLayout
-      step={5}
-      title="Consent to use your data"
-      subtitle="Please read the information below carefully."
+      step={6}
+      title="Consent for use"
+      subtitle="We use your information to create your MARCOFED account and provide you with government and cooperative services."
       onBack={() => navigation.goBack()}
-      scroll={false}
       footer={
-        <>
-          <Button
-            label="I agree"
-            trailingIcon="arrow-forward"
-            disabled={!canAgree}
-            onPress={handleAgree}
-          />
-          {hint ? <Text style={styles.hint}>{hint}</Text> : null}
-        </>
+        <Button
+          label="Continue"
+          trailingIcon="arrow-forward"
+          disabled={!canContinue}
+          onPress={handleContinue}
+        />
       }
     >
-      <Card padded={false} style={styles.document}>
-        <ScrollView
-          contentContainerStyle={styles.documentContent}
-          onContentSizeChange={(_, height) => {
-            contentHeight.current = height;
-            markEndIfVisible(0);
-          }}
-          onLayout={(e) => {
-            viewportHeight.current = e.nativeEvent.layout.height;
-            markEndIfVisible(0);
-          }}
-          onScroll={(e) => markEndIfVisible(e.nativeEvent.contentOffset.y)}
-          scrollEventThrottle={SCROLL_THROTTLE_MS}
-        >
-          {consentDocument.paragraphs.map((paragraph) => (
-            <Text key={paragraph} style={styles.paragraph}>
-              {paragraph}
-            </Text>
-          ))}
-        </ScrollView>
-      </Card>
-      <Checkbox
-        checked={agreed}
-        onChange={setAgreed}
-        label="I have read and understood the above and agree to give my consent."
-      />
+      <View style={styles.cards}>
+        {consentDocument.items.map((item) => (
+          <ConsentCard
+            key={item.id}
+            icon={item.icon}
+            title={item.title}
+            description={item.description}
+            checked={consents[item.id]}
+            onChange={(checked) => setConsents((current) => ({ ...current, [item.id]: checked }))}
+          />
+        ))}
+        <Card tone="info" style={styles.note}>
+          <Avatar icon="information-circle" />
+          <Text style={styles.noteText}>{consentDocument.note}</Text>
+        </Card>
+      </View>
     </OnboardingLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  document: {
-    flex: 1,
-  },
-  documentContent: {
-    padding: theme.space.m,
+  cards: {
     gap: theme.space.m,
   },
-  paragraph: {
-    ...theme.type.body,
-    color: theme.color.textPrimary,
+  note: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.space.m,
+    paddingVertical: theme.space.s + theme.space.xs,
   },
-  hint: {
-    ...theme.type.caption,
-    color: theme.color.textSecondary,
-    textAlign: 'center',
+  noteText: {
+    ...theme.type.body,
+    color: color.textSecondary,
+    flex: 1,
   },
 });

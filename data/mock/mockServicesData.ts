@@ -1,5 +1,4 @@
-import { requireNotice } from './mockNotices';
-import { mockUser, type Pillar, type UserProfile } from './mockUser';
+import type { Pillar } from './mockUser';
 
 export type PillarStatus =
   | { type: 'rates_updated'; updatedAt: string }
@@ -13,19 +12,13 @@ export type PillarSummary = {
   status: PillarStatus;
 };
 
-// The bell badge isn't here: it reads live unread state via useUnreadNoticeCount().
+// The user's name and UID come from the live profile (useUserProfile), and the bell badge from
+// live unread state (useUnreadNoticeCount) — neither is a snapshot in this response.
 export type ServicesResponse = {
-  user: UserProfile;
-  /** `id` is a real notice id — the banner opens it in NoticeDetail. */
-  announcement: { id: string; text: string };
   pillars: PillarSummary[];
 };
 
-const banner = requireNotice('ann-2025-0811-dimapur-drive');
-
 export const mockServicesData: ServicesResponse = {
-  user: mockUser,
-  announcement: { id: banner.id, text: banner.title },
   pillars: [
     {
       pillar: 'vandhan',

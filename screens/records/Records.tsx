@@ -2,19 +2,22 @@ import { useIsFocused } from '@react-navigation/native';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Avatar from '../../components/ui/Avatar';
 import Card from '../../components/ui/Card';
 import FilterChip from '../../components/ui/FilterChip';
 import IconButton from '../../components/ui/IconButton';
+import ProfileChip from '../../components/ui/ProfileChip';
 import ListRow from '../../components/ui/ListRow';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
 import StatusPill from '../../components/ui/StatusPill';
-import { initialsOf, mockUser, type Pillar } from '../../data/mock/mockUser';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
+import type { Pillar } from '../../data/mock/mockUser';
 import type { RecordsScreenProps } from '../../navigation/types';
 import theme from '../../theme';
 import { groupByDay } from '../dayGroups';
 import { formatTime } from '../formatDate';
 import { pillarMeta } from '../pillarMeta';
 import { useUnreadNoticeCount } from '../useUnreadNoticeCount';
+import { useUserProfile } from '../useUserProfile';
 import { getRecords, summarize } from './recordSource';
 
 type RecordFilter = 'all' | Pillar;
@@ -33,6 +36,9 @@ const EMPTY_MESSAGES: Record<RecordFilter, string> = {
 export default function Records({ navigation }: RecordsScreenProps<'Records'>) {
   const [filter, setFilter] = useState<RecordFilter>('all');
   const unreadNotificationCount = useUnreadNoticeCount();
+  const profile = useUserProfile();
+  // Settings lives in the Home tab; opening it from here switches tabs, with Home beneath it.
+  const openSettings = () => navigation.navigate('HomeTab', { screen: 'Settings', initial: false });
 
   // Re-derive on focus so records created elsewhere (a logged collection, an LPG booking)
   // are here when the user switches back to this tab.
@@ -43,13 +49,10 @@ export default function Records({ navigation }: RecordsScreenProps<'Records'>) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
+      <ScenicBackdrop tone="blue" />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Avatar initials={initialsOf(mockUser.fullName)} />
-          <Text numberOfLines={1} style={styles.uid}>
-            <Text style={styles.uidLabel}>{'UID  '}</Text>
-            {mockUser.uid}
-          </Text>
+          <ProfileChip fullName={profile.fullName} uid={profile.uid} onPress={openSettings} />
           <IconButton
             icon="notifications-outline"
             badgeCount={unreadNotificationCount}
@@ -58,12 +61,9 @@ export default function Records({ navigation }: RecordsScreenProps<'Records'>) {
           />
         </View>
 
-        <View style={styles.heading}>
-          <Text accessibilityRole="header" style={styles.title}>
-            My Records
-          </Text>
-          <Text style={styles.secondary}>Your history across all services</Text>
-        </View>
+        <Text accessibilityRole="header" style={styles.title}>
+          My Records
+        </Text>
 
         <ScrollView
           horizontal
@@ -100,7 +100,7 @@ export default function Records({ navigation }: RecordsScreenProps<'Records'>) {
               {group.items.map((summary) => {
                 const meta = pillarMeta[summary.pillar];
                 return (
-                  <Card key={summary.recordId} padded={false}>
+                  <Card key={summary.recordId} padded={false} elevated>
                     <ListRow
                       icon={meta.icon}
                       iconColor={meta.colors.icon}
@@ -118,6 +118,7 @@ export default function Records({ navigation }: RecordsScreenProps<'Records'>) {
             </View>
           ))
         )}
+        <TabBarSpacer />
       </ScrollView>
     </SafeAreaView>
   );
@@ -126,7 +127,7 @@ export default function Records({ navigation }: RecordsScreenProps<'Records'>) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: theme.color.backgroundCool,
   },
   content: {
     padding: theme.space.m,
@@ -137,20 +138,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.space.m,
   },
-  uid: {
-    ...theme.type.body,
-    color: theme.color.textPrimary,
-    flex: 1,
-  },
-  uidLabel: {
-    ...theme.type.caption,
-    color: theme.color.textSecondary,
-  },
-  heading: {
-    gap: theme.space.xs,
-  },
   title: {
-    ...theme.type.largeTitle,
+    ...theme.type.display,
     color: theme.color.textPrimary,
   },
   secondary: {
@@ -172,7 +161,8 @@ const styles = StyleSheet.create({
   },
   groupLabel: {
     ...theme.type.body,
-    fontWeight: '600',
+    fontSize: theme.type.headline.fontSize,
+    fontWeight: '500',
     color: theme.color.textSecondary,
   },
 });

@@ -12,6 +12,37 @@ import { formatDate, formatShortDate, formatTime } from '../formatDate';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
+// Accepted lengths for linking an IOCL connection. To confirm against IOCL's formats before release.
+export const LPG_ID_DIGITS = { min: 10, max: 17 };
+export const CONSUMER_NUMBER_DIGITS = { min: 5, max: 10 };
+
+export function validateLpgId(lpgId: string) {
+  if (!lpgId) return 'LPG ID is required.';
+  if (lpgId.length < LPG_ID_DIGITS.min) return `Enter at least ${LPG_ID_DIGITS.min} digits.`;
+  return undefined;
+}
+
+export function validateConsumerNumber(consumerNumber: string) {
+  if (!consumerNumber) return 'Consumer number is required.';
+  if (consumerNumber.length < CONSUMER_NUMBER_DIGITS.min) {
+    return `Enter at least ${CONSUMER_NUMBER_DIGITS.min} digits.`;
+  }
+  return undefined;
+}
+
+// ---- Booking reference (EnterBookingReference, and optionally ComplaintDetails)
+
+const BOOKING_REFERENCE_PATTERN = /^[A-Z0-9]{6,10}$/;
+
+/** Spaces removed, upper-cased — how a reference is typed from an SMS vs. how it's stored. */
+export const normalizeBookingReference = (reference: string) => reference.replace(/\s/g, '').toUpperCase();
+
+export function validateBookingReference(reference: string, { optional = false } = {}) {
+  if (!reference) return optional ? undefined : 'Booking reference is required.';
+  if (!BOOKING_REFERENCE_PATTERN.test(reference)) return 'Use the 6–10 letter or number code from your SMS.';
+  return undefined;
+}
+
 export const bookingLockLabel = (days: number) =>
   `You can book again in ${days} ${days === 1 ? 'day' : 'days'}`;
 
@@ -50,7 +81,7 @@ export const requestStageMeta: Record<
   reference_submitted: { label: 'Submitted', stepLabel: 'Reference Submitted', tone: 'info', icon: 'document-text' },
   consolidated: { label: 'In progress', stepLabel: 'Consolidated by In-Charge', tone: 'info', icon: 'hourglass' },
   batch_published: { label: 'Batch published', stepLabel: 'Batch Published', tone: 'warning', icon: 'megaphone' },
-  delivered: { label: 'Delivered', stepLabel: 'Delivered', tone: 'success', icon: 'checkmark-circle' },
+  delivered: { label: 'Delivered', stepLabel: 'Delivered', tone: 'complete', icon: 'checkmark-circle' },
 };
 
 export function requestSteps(request: RefillRequest, detail: 'none' | 'dateTime'): Step[] {

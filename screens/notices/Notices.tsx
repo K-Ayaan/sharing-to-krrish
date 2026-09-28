@@ -5,17 +5,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Avatar from '../../components/ui/Avatar';
 import Card from '../../components/ui/Card';
 import FilterChip from '../../components/ui/FilterChip';
+import IconButton from '../../components/ui/IconButton';
+import ProfileChip from '../../components/ui/ProfileChip';
 import ListRow from '../../components/ui/ListRow';
+import SoftBackdrop from '../../components/ui/SoftBackdrop';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import {
   getLastFetchedAt,
   getNotices,
   refreshNotices,
   type NoticePillar,
 } from '../../data/mock/mockNotices';
-import { initialsOf, mockUser } from '../../data/mock/mockUser';
 import type { NoticesScreenProps } from '../../navigation/types';
 import theme from '../../theme';
 import { formatTime } from '../formatDate';
+import { useUnreadNoticeCount } from '../useUnreadNoticeCount';
+import { useUserProfile } from '../useUserProfile';
 import { groupNoticesByDay, lastUpdatedLabel, noticePillarMeta } from './noticeFormat';
 
 type NoticeFilter = 'all' | Exclude<NoticePillar, 'general'>;
@@ -25,13 +30,22 @@ const FILTERS: NoticeFilter[] = ['all', 'vandhan', 'livestock', 'lpg'];
 
 export default function Notices({ navigation }: NoticesScreenProps<'Notices'>) {
   const [filter, setFilter] = useState<NoticeFilter>('all');
+  // The header bell (redesign) toggles "Unread only" here, on top of the pillar filter — every other
+  // screen's bell leads to this list, so on this screen it filters instead.
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const unreadCount = useUnreadNoticeCount();
   const [refreshing, setRefreshing] = useState(false);
   const [fetchedAt, setFetchedAt] = useState(getLastFetchedAt);
+  const profile = useUserProfile();
+  // Settings lives in the Home tab; opening it from here switches tabs, with Home beneath it.
+  const openSettings = () => navigation.navigate('HomeTab', { screen: 'Settings', initial: false });
 
   // Re-render on focus so a notice opened in NoticeDetail shows as read on return.
   useIsFocused();
   const notices = getNotices();
-  const visible = filter === 'all' ? notices : notices.filter((notice) => notice.pillar === filter);
+  const visible = notices.filter(
+    (notice) => (filter === 'all' || notice.pillar === filter) && (!unreadOnly || !notice.read)
+  );
   const groups = groupNoticesByDay(visible);
 
   const handleRefresh = async () => {
@@ -46,6 +60,7 @@ export default function Notices({ navigation }: NoticesScreenProps<'Notices'>) {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
+      <SoftBackdrop />
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -57,19 +72,20 @@ export default function Notices({ navigation }: NoticesScreenProps<'Notices'>) {
         }
       >
         <View style={styles.header}>
-          <Avatar initials={initialsOf(mockUser.fullName)} />
-          <Text numberOfLines={1} style={styles.uid}>
-            <Text style={styles.uidLabel}>{'UID  '}</Text>
-            {mockUser.uid}
-          </Text>
+          <ProfileChip fullName={profile.fullName} uid={profile.uid} onPress={openSettings} />
+          <IconButton
+            icon={unreadOnly ? 'notifications' : 'notifications-outline'}
+            color={unreadOnly ? theme.color.primary : theme.color.textPrimary}
+            badgeCount={unreadCount}
+            selected={unreadOnly}
+            accessibilityLabel="Show unread notices only"
+            onPress={() => setUnreadOnly((current) => !current)}
+          />
         </View>
 
-        <View style={styles.heading}>
-          <Text accessibilityRole="header" style={styles.title}>
-            Notices
-          </Text>
-          <Text style={styles.secondary}>Updates that matter to you</Text>
-        </View>
+        <Text accessibilityRole="header" style={styles.title}>
+          Notices
+        </Text>
 
         <ScrollView
           horizontal
@@ -93,11 +109,16 @@ export default function Notices({ navigation }: NoticesScreenProps<'Notices'>) {
           )}
         </ScrollView>
 
-        <Text style={styles.lastUpdated}>{lastUpdatedLabel(fetchedAt)} · Pull down to refresh</Text>
+        <View style={styles.lastUpdatedRow}>
+          <Avatar icon="refresh" iconColor={theme.color.textPrimary} />
+          <Text style={styles.lastUpdated}>{lastUpdatedLabel(fetchedAt)} · Pull down to refresh</Text>
+        </View>
 
         {groups.length === 0 ? (
           <Card>
-            <Text style={[styles.secondary, styles.centered]}>No notices here yet.</Text>
+            <Text style={[styles.secondary, styles.centered]}>
+              {unreadOnly ? "You're all caught up — no unread notices." : 'No notices here yet.'}
+            </Text>
           </Card>
         ) : (
           groups.map((group) => (
@@ -108,17 +129,16 @@ export default function Notices({ navigation }: NoticesScreenProps<'Notices'>) {
               {group.notices.map((notice) => {
                 const meta = noticePillarMeta[notice.pillar];
                 return (
-                  <Card key={notice.id} padded={false}>
+                  <Card key={notice.id} padded={false} elevated>
                     <ListRow
                       icon={meta.icon}
                       iconColor={meta.colors.icon}
                       iconBackground={meta.colors.tint}
                       title={notice.title}
                       subtitle={notice.summary}
-                      titleAccessory={<Text style={styles.time}>{formatTime(notice.publishedAt)}</Text>}
-                      // Unread rows get ListRow's dot + "Unread" announcement; read rows show nothing.
+                      // Time top-right, the unread dot beneath it (and "Unread" for VoiceOver), then a chevron.
+                      timestamp={formatTime(notice.publishedAt)}
                       unread={!notice.read}
-                      trailing={notice.read ? <></> : undefined}
                       onPress={() => navigation.navigate('NoticeDetail', { noticeId: notice.id })}
                     />
                   </Card>
@@ -127,6 +147,7 @@ export default function Notices({ navigation }: NoticesScreenProps<'Notices'>) {
             </View>
           ))
         )}
+        <TabBarSpacer />
       </ScrollView>
     </SafeAreaView>
   );
@@ -135,7 +156,7 @@ export default function Notices({ navigation }: NoticesScreenProps<'Notices'>) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: theme.color.backgroundCool,
   },
   content: {
     padding: theme.space.m,
@@ -146,20 +167,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.space.m,
   },
-  uid: {
-    ...theme.type.body,
-    color: theme.color.textPrimary,
-    flex: 1,
-  },
-  uidLabel: {
-    ...theme.type.caption,
-    color: theme.color.textSecondary,
-  },
-  heading: {
-    gap: theme.space.xs,
-  },
   title: {
-    ...theme.type.largeTitle,
+    ...theme.type.display,
     color: theme.color.textPrimary,
   },
   secondary: {
@@ -176,21 +185,23 @@ const styles = StyleSheet.create({
     gap: theme.space.s,
     paddingHorizontal: theme.space.m,
   },
+  lastUpdatedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.space.s,
+  },
   lastUpdated: {
     ...theme.type.caption,
     color: theme.color.textSecondary,
-    textAlign: 'center',
   },
   group: {
     gap: theme.space.s,
   },
   groupLabel: {
     ...theme.type.body,
-    fontWeight: '600',
-    color: theme.color.textSecondary,
-  },
-  time: {
-    ...theme.type.caption,
+    fontSize: theme.type.headline.fontSize,
+    fontWeight: '500',
     color: theme.color.textSecondary,
   },
 });

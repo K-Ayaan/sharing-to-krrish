@@ -1,18 +1,17 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import type { AppIconName } from '../../components/ui/AppIcon';
 import BottomSheet from '../../components/ui/BottomSheet';
 import Card from '../../components/ui/Card';
 import ListRow from '../../components/ui/ListRow';
+import Radio from '../../components/ui/Radio';
 import TextField from '../../components/ui/TextField';
 import theme from '../../theme';
-
-type IconName = keyof typeof Ionicons.glyphMap;
 
 export type FilterSheetOption<T extends string> = {
   id: T;
   name: string;
-  icon: IconName;
+  icon: AppIconName;
   iconColor?: string;
   iconBackground?: string;
 };
@@ -32,7 +31,8 @@ type FilterSheetProps<T extends string> = MultiSelectSheetProps<T> & {
 };
 
 // Screen-local layout for the Livestock filter sheets, composed from components/ui.
-// Native iOS multi-select: a checkmark on selected rows, nothing on the rest.
+// Multi-select drawn with round marks (as in the Livestock redesign): a filled mark on each selected
+// row, an empty ring on the rest. Several values per filter can still be chosen.
 // Edits are a draft — "Done" applies them, × or the backdrop discards them.
 export default function FilterSheet<T extends string>({
   visible,
@@ -95,17 +95,7 @@ export default function FilterSheet<T extends string>({
                   selected={checked}
                   divider={index < visibleOptions.length - 1}
                   onPress={() => toggle(option.id)}
-                  trailing={
-                    checked ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={theme.type.title.fontSize}
-                        color={theme.color.primary}
-                      />
-                    ) : (
-                      <></>
-                    )
-                  }
+                  trailing={<Radio selected={checked} />}
                 />
               );
             })

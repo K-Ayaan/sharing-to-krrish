@@ -14,17 +14,17 @@ import {
 } from '../../data/mock/mockLpg';
 import type { Pillar } from '../../data/mock/mockUser';
 import {
+  getActiveGrievance,
   getCollectionLogs,
   getPickups,
   getProduce,
-  mockVanDhanHome,
   type CollectionLog,
   type Grievance,
   type Pickup,
 } from '../../data/mock/mockVanDhan';
 import { speciesName } from '../livestock/livestockFormat';
 import { requestStageMeta } from '../lpg/lpgFormat';
-import { grievanceStageMeta, pickupStatusMeta } from '../vandhan/vanDhanFormat';
+import { grievanceStageMeta, pickupDisplayStatus } from '../vandhan/vanDhanFormat';
 
 // Records owns no data. Every record is derived, on each read, from the pillar mocks the rest
 // of the app writes to — so a collection logged in LogCollection, a booking made in
@@ -53,8 +53,23 @@ export type RecordSummary = {
 
 export const recordIdOf = (record: AppRecord) => `${record.kind}:${record.data.id}`;
 
+const KIND_PILLAR: Record<AppRecord['kind'], Pillar> = {
+  vandhan_collection: 'vandhan',
+  vandhan_pickup: 'vandhan',
+  vandhan_grievance: 'vandhan',
+  livestock_enquiry: 'livestock',
+  lpg_refill: 'lpg',
+  lpg_complaint: 'lpg',
+};
+
+/** The pillar a "<kind>:<id>" record id belongs to, without loading the record. */
+export function pillarOfRecordId(recordId: string): Pillar | null {
+  const kind = recordId.slice(0, recordId.indexOf(':')) as AppRecord['kind'];
+  return KIND_PILLAR[kind] ?? null;
+}
+
 export function getRecords(): AppRecord[] {
-  const grievance = mockVanDhanHome.activeGrievance;
+  const grievance = getActiveGrievance();
   return [
     ...getCollectionLogs().map((data): AppRecord => ({ kind: 'vandhan_collection', data })),
     ...getPickups().map((data): AppRecord => ({ kind: 'vandhan_pickup', data })),
@@ -90,12 +105,14 @@ export function summarize(record: AppRecord): RecordSummary {
         title: 'Collection record',
         subtitle: `${produceName(log.produceId)} – ${log.quantity} ${log.unit}`,
         occurredAt: log.loggedAt,
-        status: { label: 'Recorded', tone: 'success' },
+        status: log.cancelledAt
+          ? { label: 'Cancelled', tone: 'neutral' }
+          : { label: 'Recorded', tone: 'success' },
       };
     }
     case 'vandhan_pickup': {
       const pickup = record.data;
-      const meta = pickupStatusMeta[pickup.status];
+      const meta = pickupDisplayStatus(pickup);
       return {
         recordId,
         pillar: 'vandhan',

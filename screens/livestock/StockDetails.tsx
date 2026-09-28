@@ -5,7 +5,9 @@ import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import DetailRow from '../../components/ui/DetailRow';
 import PhotoCarousel from '../../components/ui/PhotoCarousel';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
 import StatusPill from '../../components/ui/StatusPill';
+import { useTabBarInset } from '../../components/ui/TabBarSpacer';
 import Toast from '../../components/ui/Toast';
 import { enquiryMessage, getStockItem, recordEnquiry } from '../../data/mock/mockLivestock';
 import type { LivestockScreenProps } from '../../navigation/types';
@@ -15,10 +17,13 @@ import { formatDateTime } from '../formatDate';
 import { pillarMeta } from '../pillarMeta';
 import { enquiryLabels, sexIcon, speciesIcon, WEIGHT_ICON } from './livestockFormat';
 
+const { color } = theme.livestock;
+
 // Enquiry-only by design (flow.md): the only actions hand off to Phone and WhatsApp.
 export default function StockDetails({ route }: LivestockScreenProps<'StockDetails'>) {
   const item = getStockItem(route.params.stockId);
   const [toast, setToast] = useState<string | null>(null);
+  const tabBarInset = useTabBarInset();
 
   if (!item) {
     return (
@@ -53,6 +58,7 @@ export default function StockDetails({ route }: LivestockScreenProps<'StockDetai
   return (
     <View style={styles.screen}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+        <ScenicBackdrop />
         <PhotoCarousel
           photos={item.photos}
           fallbackIcon={pillarMeta.livestock.icon}
@@ -93,7 +99,7 @@ export default function StockDetails({ route }: LivestockScreenProps<'StockDetai
         </Card>
 
         <Card tone="info" style={styles.infoRow}>
-          <Avatar icon="information" iconColor={theme.color.background} tint={theme.color.primary} />
+          <Avatar icon="information" iconColor={theme.color.background} tint={color.primary} />
           <Text style={[styles.secondary, styles.flex]}>
             This stock is shown for enquiries only. To ask about it, contact the MARCOFED livestock
             team at {item.centre.name} by phone or WhatsApp.
@@ -102,7 +108,7 @@ export default function StockDetails({ route }: LivestockScreenProps<'StockDetai
       </ScrollView>
 
       {/* Equal weight on purpose: same variant, same flex, neither is the "main" action. */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: theme.space.s + tabBarInset }]}>
         <Button label="Call" icon="call" onPress={call} style={styles.flex} />
         <Button label="WhatsApp" icon="logo-whatsapp" onPress={messageOnWhatsApp} style={styles.flex} />
       </View>
@@ -120,9 +126,11 @@ export default function StockDetails({ route }: LivestockScreenProps<'StockDetai
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: color.background,
   },
   content: {
+    // Fill at least the screen, so the backdrop inside the scroll content reaches the bottom.
+    flexGrow: 1,
     padding: theme.space.m,
     gap: theme.space.m,
   },
@@ -136,6 +144,7 @@ const styles = StyleSheet.create({
   },
   id: {
     ...theme.type.title,
+    fontWeight: '800',
     color: theme.color.textPrimary,
   },
   sectionTitle: {
@@ -156,8 +165,6 @@ const styles = StyleSheet.create({
     gap: theme.space.s,
     paddingHorizontal: theme.space.m,
     paddingVertical: theme.space.s,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.color.border,
-    backgroundColor: theme.color.background,
+    backgroundColor: color.background,
   },
 });

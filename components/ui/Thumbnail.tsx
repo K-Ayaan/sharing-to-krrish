@@ -1,13 +1,13 @@
 // <Thumbnail uri={produce.imageUrl} fallbackIcon="leaf" />  or  <Thumbnail uri={kendra.photoUrl} fallbackIcon="business" size="banner" />
-import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Image, StyleSheet, View, ViewStyle } from 'react-native';
 import theme from '../../theme';
+import AppIcon, { type AppIconName } from './AppIcon';
 
 export type ThumbnailProps = {
   uri: string | null;
   /** Shown when there is no image or it fails to load. */
-  fallbackIcon: keyof typeof Ionicons.glyphMap;
+  fallbackIcon: AppIconName;
   iconColor?: string;
   tint?: string;
   /** 'm' and 'l' are squares; 'banner' fills the width at 16:9. */
@@ -56,7 +56,7 @@ export default function Thumbnail({
           style={StyleSheet.absoluteFill}
         />
       ) : (
-        <Ionicons name={fallbackIcon} size={iconSize} color={iconColor} />
+        <AppIcon name={fallbackIcon} size={iconSize} color={iconColor} />
       )}
     </View>
   );

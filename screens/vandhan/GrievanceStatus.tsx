@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Avatar from '../../components/ui/Avatar';
 import Card from '../../components/ui/Card';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
 import IconButton from '../../components/ui/IconButton';
 import StatusPill from '../../components/ui/StatusPill';
 import StatusTracker from '../../components/ui/StatusTracker';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import Toast from '../../components/ui/Toast';
-import { mockVanDhanHome } from '../../data/mock/mockVanDhan';
+import { getActiveGrievance } from '../../data/mock/mockVanDhan';
 import theme from '../../theme';
 import { formatDateTime } from '../formatDate';
 import {
@@ -18,7 +20,8 @@ import {
 } from './vanDhanFormat';
 
 export default function GrievanceStatus() {
-  const grievance = mockVanDhanHome.activeGrievance;
+  // Registered producers only — unregistered users have no grievances.
+  const grievance = getActiveGrievance();
   const [toast, setToast] = useState<string | null>(null);
 
   if (!grievance) {
@@ -39,6 +42,7 @@ export default function GrievanceStatus() {
   return (
     <View style={styles.screen}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+        <ScenicBackdrop />
         <Card style={styles.section}>
           <View style={styles.headerRow}>
             <View style={styles.flex}>
@@ -62,12 +66,13 @@ export default function GrievanceStatus() {
             </View>
             <IconButton
               icon="call"
-              color={theme.color.primary}
+              color={theme.vandhan.color.primary}
               accessibilityLabel="Call the Van Dhan helpline"
               onPress={callHelpline}
             />
           </Card>
         </Card>
+        <TabBarSpacer />
       </ScrollView>
       <Toast visible={toast !== null} message={toast ?? ''} onHide={() => setToast(null)} />
     </View>
@@ -77,9 +82,11 @@ export default function GrievanceStatus() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: theme.vandhan.color.background,
   },
   content: {
+    // Fill at least the screen, so the backdrop inside the scroll content reaches the bottom.
+    flexGrow: 1,
     padding: theme.space.m,
     gap: theme.space.m,
   },

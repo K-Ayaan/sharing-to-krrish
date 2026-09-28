@@ -1,13 +1,17 @@
-import { useEffect, useRef } from 'react';
+import * as Clipboard from 'expo-clipboard';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, StyleSheet, Text, View } from 'react-native';
 import Avatar from '../../components/ui/Avatar';
 import BottomSheet from '../../components/ui/BottomSheet';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
+import IconButton from '../../components/ui/IconButton';
 import { mockLpgHome } from '../../data/mock/mockLpg';
 import theme from '../../theme';
 import { openPhone } from '../contact';
 import { formatTollFree } from './lpgFormat';
+
+const COPIED_MS = 2000;
 
 const STEPS = [
   'This will open your phone to call the IOCL number.',
@@ -25,6 +29,7 @@ type RequestRefillSheetProps = {
 // <RequestRefillSheet visible={open} onClose={close} onCallUnavailable={showToast} />
 export default function RequestRefillSheet({ visible, onClose, onCallUnavailable }: RequestRefillSheetProps) {
   const phone = mockLpgHome.ioclBookingPhone;
+  const [copied, setCopied] = useState(false);
   const awaitingReturn = useRef(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -40,6 +45,13 @@ export default function RequestRefillSheet({ visible, onClose, onCallUnavailable
     return () => subscription.remove();
   }, []);
 
+  // The sheet is a modal, so a screen Toast would sit behind it: the copy icon turns into a tick instead.
+  const copyNumber = async () => {
+    await Clipboard.setStringAsync(formatTollFree(phone));
+    setCopied(true);
+    setTimeout(() => setCopied(false), COPIED_MS);
+  };
+
   const callNow = async () => {
     // Set before opening: iOS may background and resume the app before openURL resolves.
     awaitingReturn.current = true;
@@ -50,7 +62,7 @@ export default function RequestRefillSheet({ visible, onClose, onCallUnavailable
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose}>
+    <BottomSheet visible={visible} onClose={onClose} showClose>
       <View style={styles.content}>
         <View style={styles.hero}>
           <Avatar icon="call" size="l" />
@@ -68,24 +80,26 @@ export default function RequestRefillSheet({ visible, onClose, onCallUnavailable
               accessibilityLabel={`Step ${index + 1}: ${step}`}
               style={styles.step}
             >
-              <Avatar
-                initials={String(index + 1)}
-                iconColor={theme.color.textSecondary}
-                tint={theme.color.surfaceMuted}
-              />
+              <Avatar initials={String(index + 1)} />
               <Text style={styles.stepText}>{step}</Text>
             </View>
           ))}
         </View>
 
-        <Card style={styles.numberCard}>
-          <Avatar icon="call" />
+        <Card tone="info" style={styles.numberCard}>
+          <Avatar icon="call" tint={theme.lpg.color.surface} />
           <View style={styles.flex}>
             <Text style={styles.caption}>IOCL LPG Booking Number</Text>
             <Text selectable style={styles.number}>
               {formatTollFree(phone)}
             </Text>
           </View>
+          <IconButton
+            icon={copied ? 'checkmark' : 'copy-outline'}
+            color={theme.lpg.color.primary}
+            accessibilityLabel={copied ? 'IOCL number copied' : 'Copy IOCL number'}
+            onPress={copyNumber}
+          />
         </Card>
 
         <View style={styles.actions}>
@@ -109,7 +123,8 @@ const styles = StyleSheet.create({
     gap: theme.space.s,
   },
   title: {
-    ...theme.type.title,
+    ...theme.type.largeTitle,
+    fontSize: theme.type.largeTitle.fontSize - theme.space.xs,
     color: theme.color.textPrimary,
     textAlign: 'center',
   },

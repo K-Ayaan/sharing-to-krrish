@@ -5,6 +5,8 @@ import Avatar from '../../components/ui/Avatar';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import IconButton from '../../components/ui/IconButton';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import Toast from '../../components/ui/Toast';
 import { getComplaint } from '../../data/mock/mockLpg';
 import type { LpgScreenProps } from '../../navigation/types';
@@ -34,6 +36,7 @@ export default function ComplaintSubmitted({ navigation, route }: LpgScreenProps
   return (
     <View style={styles.screen}>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+        <ScenicBackdrop />
         <View style={styles.hero}>
           <Avatar
             icon="checkmark"
@@ -71,6 +74,7 @@ export default function ComplaintSubmitted({ navigation, route }: LpgScreenProps
           <Button label="View status" variant="secondary" onPress={viewStatus} />
           <Button label="Done" onPress={done} />
         </View>
+        <TabBarSpacer />
       </ScrollView>
 
       <Toast visible={toast !== null} message={toast ?? ''} onHide={() => setToast(null)} />
@@ -81,9 +85,11 @@ export default function ComplaintSubmitted({ navigation, route }: LpgScreenProps
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: theme.color.background,
+    backgroundColor: theme.lpg.color.background,
   },
   content: {
+    // Fill at least the screen, so the backdrop inside the scroll content reaches the bottom.
+    flexGrow: 1,
     padding: theme.space.m,
     gap: theme.space.l,
   },

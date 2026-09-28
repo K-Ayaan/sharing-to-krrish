@@ -2,6 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import theme from '../../theme';
+import { useAppearance } from './Appearance';
 
 export type AvatarProps = {
   initials?: string;
@@ -28,11 +29,14 @@ const INITIALS_TYPE = {
 export default function Avatar({
   initials,
   icon,
-  iconColor = theme.color.primary,
-  tint = theme.color.primaryTint,
+  iconColor: iconColorProp,
+  tint: tintProp,
   size = 'm',
   style,
 }: AvatarProps) {
+  const { color } = useAppearance();
+  const iconColor = iconColorProp ?? color.primary;
+  const tint = tintProp ?? color.primaryTint;
   const dimension = SIZES[size];
 
   return (

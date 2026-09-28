@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { LayoutAnimation, StyleSheet, Text } from 'react-native';
 import Button from '../../components/ui/Button';
+import InfoToggle from '../../components/ui/InfoToggle';
 import TextField from '../../components/ui/TextField';
 import type { OnboardingScreenProps } from '../../navigation/types';
+import theme from '../../theme';
 import OnboardingLayout from './OnboardingLayout';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -13,22 +16,28 @@ function validateEmail(email: string) {
 }
 
 export default function EmailEntry({ navigation, route }: OnboardingScreenProps<'EmailEntry'>) {
+  const { identity, phone } = route.params;
   const [email, setEmail] = useState('');
   const [touched, setTouched] = useState(false);
+  const [whyOpen, setWhyOpen] = useState(false);
   const trimmed = email.trim();
   const error = validateEmail(trimmed);
 
   const handleContinue = () => {
     setTouched(true);
     if (error) return;
-    navigation.navigate('ProfileDetails', { phone: route.params.phone, email: trimmed });
+    navigation.navigate('ProfileDetails', { identity, phone, email: trimmed });
+  };
+
+  const toggleWhy = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setWhyOpen((open) => !open);
   };
 
   return (
     <OnboardingLayout
-      step={3}
-      title="Enter your email address"
-      subtitle="Used to recover your account if your phone number changes."
+      step={4}
+      title="Your email address"
       onBack={() => navigation.goBack()}
       footer={
         <Button
@@ -40,6 +49,7 @@ export default function EmailEntry({ navigation, route }: OnboardingScreenProps<
       }
     >
       <TextField
+        accessibilityLabel="Email address"
         autoCapitalize="none"
         autoComplete="email"
         autoCorrect={false}
@@ -47,16 +57,27 @@ export default function EmailEntry({ navigation, route }: OnboardingScreenProps<
         error={touched ? error : undefined}
         icon="mail-outline"
         keyboardType="email-address"
-        label="Email address"
         onBlur={() => setTouched(true)}
         onChangeText={setEmail}
         onSubmitEditing={handleContinue}
         placeholder="you@example.com"
-        required
         returnKeyType="next"
         textContentType="emailAddress"
         value={email}
       />
+
+      <InfoToggle label="Why do we need this?" expanded={whyOpen} onPress={toggleWhy} />
+      {whyOpen ? (
+        <Text style={styles.why}>We'll send confirmations and service updates here.</Text>
+      ) : null}
     </OnboardingLayout>
   );
 }
+
+const styles = StyleSheet.create({
+  why: {
+    ...theme.type.body,
+    color: theme.onboarding.color.textSecondary,
+    marginTop: -theme.space.s,
+  },
+});

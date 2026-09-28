@@ -4,6 +4,7 @@ import type { Step } from '../../components/ui/StatusTracker';
 import type {
   Grievance,
   GrievanceStage,
+  Kendra,
   Pickup,
   PickupStatus,
   Produce,
@@ -12,7 +13,7 @@ import type {
 } from '../../data/mock/mockVanDhan';
 import { formatDateTime, formatShortDate, formatTime } from '../formatDate';
 
-export { CALL_UNAVAILABLE, formatPhoneDisplay, openPhone } from '../contact';
+export { CALL_UNAVAILABLE, MAPS_UNAVAILABLE, formatPhoneDisplay, openMaps, openPhone } from '../contact';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -38,6 +39,12 @@ export const trendTone: Record<Trend, StatusTone> = {
   flat: 'neutral',
 };
 
+// ---- Kendra
+
+/** What Apple Maps searches for to find a kendra. */
+export const kendraMapQuery = (kendra: Kendra) =>
+  `${kendra.name}, ${kendra.address.line1}, ${kendra.address.line2} ${kendra.address.pincode}`;
+
 // ---- Pickups
 
 const PICKUP_ORDER: PickupStatus[] = ['requested', 'confirmed', 'collected'];
@@ -45,8 +52,14 @@ const PICKUP_ORDER: PickupStatus[] = ['requested', 'confirmed', 'collected'];
 export const pickupStatusMeta: Record<PickupStatus, { label: string; tone: StatusTone; icon: IconName }> = {
   requested: { label: 'Requested', tone: 'info', icon: 'time' },
   confirmed: { label: 'Confirmed', tone: 'success', icon: 'checkmark-circle' },
-  collected: { label: 'Collected', tone: 'success', icon: 'checkmark-done-circle' },
+  collected: { label: 'Collected', tone: 'complete', icon: 'checkmark-done-circle' },
 };
+
+const PICKUP_CANCELLED = { label: 'Cancelled', tone: 'neutral' as const, icon: 'close-circle' as const };
+
+/** The status to show for a pickup — "Cancelled" overrides the stage it had reached. */
+export const pickupDisplayStatus = (pickup: Pickup) =>
+  pickup.cancelledAt ? PICKUP_CANCELLED : pickupStatusMeta[pickup.status];
 
 export function pickupSteps(pickup: Pickup, detail: 'none' | 'date' | 'dateTime'): Step[] {
   const reached = PICKUP_ORDER.indexOf(pickup.status);
@@ -82,7 +95,7 @@ export const grievanceStageMeta: Record<GrievanceStage, { label: string; tone: S
   submitted: { label: 'Submitted', tone: 'info', icon: 'paper-plane' },
   routed: { label: 'Routed', tone: 'info', icon: 'git-branch' },
   in_progress: { label: 'In progress', tone: 'warning', icon: 'hourglass' },
-  resolved: { label: 'Resolved', tone: 'success', icon: 'checkmark-circle' },
+  resolved: { label: 'Resolved', tone: 'complete', icon: 'checkmark-circle' },
 };
 
 export function grievanceSteps(grievance: Grievance): Step[] {

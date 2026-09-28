@@ -1,7 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import theme from '../theme';
+import LoaderScreen from '../components/ui/LoaderScreen';
 import MainTabs from './MainTabs';
 import { SessionContext, type SessionActions } from './OnboardingContext';
 import OnboardingStack from './OnboardingStack';
@@ -39,8 +38,9 @@ export default function RootNavigator() {
         }
         setState({ status: 'signedIn', uid });
       },
-      // TEMPORARY — dev/testing only; triggered from Home's UID chip.
-      resetOnboarding: async () => {
+      // Logout from Settings (after its confirmation dialog): clear the stored UID, then swap to
+      // Onboarding. The swap unmounts MainTabs, so Settings can't be reached afterwards.
+      signOut: async () => {
         await session.clear();
         setState({ status: 'signedOut' });
       },
@@ -49,7 +49,7 @@ export default function RootNavigator() {
   );
 
   if (state.status === 'loading') {
-    return <View style={styles.loading} />;
+    return <LoaderScreen />;
   }
 
   // Swapping the screen set (rather than navigating) removes the other branch from
@@ -66,10 +66,3 @@ export default function RootNavigator() {
     </SessionContext.Provider>
   );
 }
-
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    backgroundColor: theme.color.background,
-  },
-});

@@ -2,6 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import theme from '../../theme';
+import { useAppearance } from './Appearance';
 
 export type OptionCardProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -9,6 +10,8 @@ export type OptionCardProps = {
   description?: string;
   selected: boolean;
   onPress: () => void;
+  /** Shows a tick (selected) or an empty ring in the top-right corner. */
+  indicator?: boolean;
   style?: ViewStyle;
 };
 
@@ -17,7 +20,17 @@ const BORDER_WIDTH = theme.space.xs / 2;
 
 // One choice in a single-select group; render siblings side by side and drive
 // `selected` from shared state.
-export default function OptionCard({ icon, title, description, selected, onPress, style }: OptionCardProps) {
+export default function OptionCard({
+  icon,
+  title,
+  description,
+  selected,
+  onPress,
+  indicator = false,
+  style,
+}: OptionCardProps) {
+  const { color } = useAppearance();
+
   return (
     <Pressable
       accessibilityRole="radio"
@@ -25,12 +38,26 @@ export default function OptionCard({ icon, title, description, selected, onPress
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        selected ? styles.selected : styles.unselected,
+        selected
+          ? { backgroundColor: color.primaryTint, borderColor: color.primary }
+          : { backgroundColor: color.surface, borderColor: color.border },
         pressed && styles.pressed,
         style,
       ]}
     >
-      <View style={[styles.iconCircle, selected && styles.iconCircleSelected]}>
+      {indicator ? (
+        <View
+          style={[
+            styles.mark,
+            selected ? { backgroundColor: color.primary } : [styles.markEmpty, { borderColor: color.border }],
+          ]}
+        >
+          {selected ? (
+            <Ionicons name="checkmark" size={theme.type.caption.fontSize} color={theme.color.background} />
+          ) : null}
+        </View>
+      ) : null}
+      <View style={[styles.iconCircle, selected && { backgroundColor: color.primary }]}>
         <Ionicons
           name={icon}
           size={theme.type.headline.fontSize}
@@ -51,14 +78,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.card,
     borderWidth: BORDER_WIDTH,
   },
-  selected: {
-    backgroundColor: theme.color.primaryTint,
-    borderColor: theme.color.primary,
-  },
-  unselected: {
-    backgroundColor: theme.color.surface,
-    borderColor: theme.color.border,
-  },
   pressed: {
     opacity: 0.8,
   },
@@ -70,8 +89,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.color.surfaceMuted,
   },
-  iconCircleSelected: {
-    backgroundColor: theme.color.primary,
+  mark: {
+    position: 'absolute',
+    top: theme.space.s + theme.space.xs,
+    right: theme.space.s + theme.space.xs,
+    width: theme.space.l,
+    height: theme.space.l,
+    borderRadius: theme.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markEmpty: {
+    borderWidth: StyleSheet.hairlineWidth * 3,
   },
   title: {
     ...theme.type.headline,

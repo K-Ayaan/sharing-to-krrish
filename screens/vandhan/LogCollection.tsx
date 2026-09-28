@@ -3,7 +3,9 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import OptionCard from '../../components/ui/OptionCard';
+import ScenicBackdrop from '../../components/ui/ScenicBackdrop';
 import SelectField from '../../components/ui/SelectField';
+import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import TextField from '../../components/ui/TextField';
 import {
   logCollection,
@@ -46,9 +48,9 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
     if (!produceId || !quantityValid || submitting) return;
     setSubmitting(true);
     try {
-      await logCollection({ type, produceId, quantity: amount, unit, note: note.trim() || null });
-      // popTo takes the form out of history; VanDhanHome shows the Toast and clears the param.
-      navigation.popTo('VanDhanHome', { confirmation: 'collection_logged' });
+      const log = await logCollection({ type, produceId, quantity: amount, unit, note: note.trim() || null });
+      // Completing the form replaces it, so back from the confirmation returns to VanDhanHome.
+      navigation.replace('CollectionSubmitted', { collectionId: log.id });
     } finally {
       setSubmitting(false);
     }
@@ -62,6 +64,7 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
       keyboardShouldPersistTaps="handled"
       style={styles.screen}
     >
+      <ScenicBackdrop />
       <Card style={styles.section}>
         <Text style={styles.sectionTitle}>1. Collection type</Text>
         <View style={styles.options}>
@@ -70,6 +73,7 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
             title="I'm bringing this now"
             description="Produce is with me and will be delivered at the kendra."
             selected={type === 'bringing_now'}
+            indicator
             onPress={() => setType('bringing_now')}
           />
           <OptionCard
@@ -77,6 +81,7 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
             title="Pre-logging for later"
             description="Record this now, I will deliver it later."
             selected={type === 'pre_logged'}
+            indicator
             onPress={() => setType('pre_logged')}
           />
         </View>
@@ -86,6 +91,7 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
         <Text style={styles.sectionTitle}>2. Produce details</Text>
         <SelectField
           icon="leaf"
+          iconTinted
           label="Select produce"
           onSelect={selectProduce}
           options={produceOptions}
@@ -97,7 +103,8 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
         <View style={styles.quantityRow}>
           <TextField
             error={quantity !== '' && !quantityValid ? 'Enter a quantity above 0.' : undefined}
-            icon="scale-outline"
+            icon="cube-outline"
+            iconTinted
             keyboardType="decimal-pad"
             label="Quantity"
             onChangeText={setQuantity}
@@ -124,6 +131,7 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
         <TextField
           accessibilityLabel="Note"
           icon="create-outline"
+          iconTinted
           maxLength={NOTE_MAX_LENGTH}
           multiline
           onChangeText={setNote}
@@ -138,15 +146,18 @@ export default function LogCollection({ navigation }: VanDhanScreenProps<'LogCol
         disabled={!canSubmit}
         onPress={handleSubmit}
       />
+      <TabBarSpacer />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
-    backgroundColor: theme.color.background,
+    backgroundColor: theme.vandhan.color.background,
   },
   content: {
+    // Fill at least the screen, so the backdrop inside the scroll content reaches the bottom.
+    flexGrow: 1,
     padding: theme.space.m,
     gap: theme.space.m,
   },

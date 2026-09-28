@@ -1,12 +1,5 @@
 export type NoticePillar = 'vandhan' | 'livestock' | 'lpg' | 'general';
 
-export type NoticeRecording = {
-  id: string;
-  durationSeconds: number;
-  /** null until real recordings are hosted — AudioPlayer then simulates progress. */
-  url: string | null;
-};
-
 export type NoticeAttachment = {
   id: string;
   fileName: string;
@@ -22,7 +15,6 @@ export type Notice = {
   body: string[];
   publishedAt: string;
   read: boolean;
-  recording: NoticeRecording | null;
   attachment: NoticeAttachment | null;
 };
 
@@ -51,7 +43,6 @@ const notices: Notice[] = [
     ],
     publishedAt: atDaysAgo(0, 10, 30),
     read: false,
-    recording: { id: 'rec-agarwood-msp', durationSeconds: 45, url: null },
     attachment: { id: 'att-msp-order', fileName: 'MSP_Order_Agarwood.pdf', sizeBytes: 245 * KB, url: null },
   },
   {
@@ -65,7 +56,6 @@ const notices: Notice[] = [
     ],
     publishedAt: atDaysAgo(0, 9, 40),
     read: false,
-    recording: null,
     attachment: null,
   },
   {
@@ -79,7 +69,6 @@ const notices: Notice[] = [
     ],
     publishedAt: atDaysAgo(0, 9, 15),
     read: false,
-    recording: null,
     attachment: null,
   },
   {
@@ -93,7 +82,6 @@ const notices: Notice[] = [
     ],
     publishedAt: atDaysAgo(1, 16, 20),
     read: true,
-    recording: null,
     attachment: {
       id: 'att-fmd-schedule',
       fileName: 'FMD_Vaccination_Schedule.pdf',
@@ -112,7 +100,6 @@ const notices: Notice[] = [
     ],
     publishedAt: atDaysAgo(1, 11, 5),
     read: true,
-    recording: null,
     attachment: null,
   },
   {
@@ -126,7 +113,6 @@ const notices: Notice[] = [
     ],
     publishedAt: atDaysAgo(2, 14, 15),
     read: true,
-    recording: null,
     attachment: null,
   },
   {
@@ -137,7 +123,6 @@ const notices: Notice[] = [
     body: ['Chizami Van Dhan Kendra will now operate from 8:00 AM to 4:00 PM, Monday to Saturday.'],
     publishedAt: atDaysAgo(4, 10, 0),
     read: true,
-    recording: null,
     attachment: null,
   },
 ];
@@ -149,13 +134,6 @@ export const mockNotices: readonly Notice[] = notices;
 export const getNotices = (): Notice[] => notices;
 
 export const getNotice = (id: string) => notices.find((notice) => notice.id === id);
-
-/** For mocks that reference a notice by id; fails loudly if the id drifts. */
-export function requireNotice(id: string): Notice {
-  const notice = getNotice(id);
-  if (!notice) throw new Error(`Mock notice "${id}" not found`);
-  return notice;
-}
 
 const listeners = new Set<() => void>();
 
