@@ -35,6 +35,7 @@ first. For LPG, any 10–17 digit LPG ID with a 5–10 digit consumer number reg
 - [ ] Pinned footer buttons (Stock details, complaint Continue/Submit, LPG connection linked) sit above the tab bar, not behind it
 - [ ] Every built screen visually matches its image in `design/screens/` apart from the deviations recorded in `design/flow.md` — no clipped, overlapping or cut-off text
 - [ ] Van Dhan, Livestock and LPG homes, and the Van Dhan/LPG registration screens, show at the very top a back chevron, the service logo beside the bold title, and a bell on the right — no empty bar above the title and no subtitle under it
+- [ ] LPG home → "Join colony WhatsApp group" opens WhatsApp on the colony group invite (the mock link is a placeholder, so WhatsApp will say the invite is invalid until a real one is set in mockLpg.ts)
 - [ ] On the inner Van Dhan/LPG screens, the large title collapses into the navigation bar when scrolling up
 - [ ] Long large titles ("Enter booking reference", "Kendra information", "Schedule a pickup") are fully readable, not truncated with "…"
 - [ ] On an iPhone SE-width screen (375pt), each Van Dhan rate row shows name, dialect, price, trend badge and updated date without overlap

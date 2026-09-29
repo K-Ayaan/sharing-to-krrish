@@ -13,10 +13,10 @@ import StatusPill from '../../components/ui/StatusPill';
 import StatusTracker from '../../components/ui/StatusTracker';
 import TabBarSpacer from '../../components/ui/TabBarSpacer';
 import Toast from '../../components/ui/Toast';
-import { BOOKING_INTERVAL_DAYS, getLpgSummary, mockLpgHome } from '../../data/mock/mockLpg';
+import { BOOKING_INTERVAL_DAYS, getColony, getLpgSummary, mockLpgHome } from '../../data/mock/mockLpg';
 import type { LpgScreenProps } from '../../navigation/types';
 import theme from '../../theme';
-import { CALL_UNAVAILABLE } from '../contact';
+import { CALL_UNAVAILABLE, openWhatsAppGroup, WHATSAPP_UNAVAILABLE } from '../contact';
 import { formatDate } from '../formatDate';
 import { pillarMeta } from '../pillarMeta';
 import { useUnreadNoticeCount } from '../useUnreadNoticeCount';
@@ -42,6 +42,11 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
   const registered = summary.isRegistered;
   const canBook = summary.isRegistered && summary.canBook;
   const daysLeft = summary.isRegistered ? summary.daysUntilEligible : 0;
+  const colony = getColony();
+
+  const joinColonyGroup = async () => {
+    if (colony && !(await openWhatsAppGroup(colony.whatsappGroupUrl))) setToast(WHATSAPP_UNAVAILABLE);
+  };
 
   // Registration gate (flow.md): the Services card and Home route unregistered users straight to
   // LpgRegistration; any other way in is redirected here instead.
@@ -170,6 +175,17 @@ export default function LpgHome({ navigation, route }: LpgScreenProps<'LpgHome'>
             navigation.navigate('ComplaintCategory', activeRequest ? { requestId: activeRequest.id } : undefined)
           }
         />
+
+        {/* The colony's WhatsApp group: everyone on this reference code, plus the colony in-charge. */}
+        {colony ? (
+          <Button
+            label="Join colony WhatsApp group"
+            icon="logo-whatsapp"
+            variant="secondary"
+            chevron
+            onPress={joinColonyGroup}
+          />
+        ) : null}
         <TabBarSpacer />
       </ScrollView>
 

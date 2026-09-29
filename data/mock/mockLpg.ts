@@ -175,6 +175,27 @@ export function getConnection(): LpgConnection | null {
   return { lpgId, consumerNumber, lastBookingAt };
 }
 
+// ---- Colony: villages whose LPG connections share one reference code form a colony, with a WhatsApp
+// group for its residents and the colony in-charge.
+
+export type LpgColony = {
+  referenceCode: string;
+  /** WhatsApp group invite link ("https://chat.whatsapp.com/<invite code>"). */
+  whatsappGroupUrl: string;
+};
+
+/**
+ * Mock colony for the registered connection. PLACEHOLDER invite link: replace with the colony's real
+ * group invite (a real backend would return it from the connection's reference code).
+ */
+const mockColony: LpgColony = {
+  referenceCode: 'KHN-01',
+  whatsappGroupUrl: 'https://chat.whatsapp.com/MARCOFEDKHN01PLACEHOLDER',
+};
+
+/** The colony of the registered connection; null until LPG is registered. */
+export const getColony = (): LpgColony | null => (registration.isRegistered ? mockColony : null);
+
 export const nextEligibleDate = (lpg: LpgConnection) =>
   new Date(new Date(lpg.lastBookingAt).getTime() + BOOKING_INTERVAL_DAYS * DAY_MS);
 

@@ -243,6 +243,9 @@ LpgHome (registered)
  │     └── "Continue" → RequestStatus (replace, with the new `requestId`)
  ├── current-request card (only while a request is undelivered) → RequestStatus (`requestId`)
  ├── "Raise a complaint" → ComplaintCategory
+ ├── "Join colony WhatsApp group" → Linking.openURL(the colony's WhatsApp group invite link). A colony is
+ │     the villages whose connections share one LPG reference code; its group holds those residents and
+ │     the colony in-charge. The link comes from `getColony()` in mockLpg.ts (placeholder until a real one)
  └── primary button state: disabled + relabeled "You can book again in N days" when
      `today < nextEligibleDate` (21 days after the last booking)
 

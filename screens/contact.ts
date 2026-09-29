@@ -22,6 +22,9 @@ export const openPhone = (phone: string) => openExternal(`tel:${phone}`);
 export const openWhatsApp = (phone: string, message: string) =>
   openExternal(`whatsapp://send?phone=${phone.replace(/\D/g, '')}&text=${encodeURIComponent(message)}`);
 
+/** Opens a WhatsApp group invite link in WhatsApp (Safari shows the invite page if it isn't installed). */
+export const openWhatsAppGroup = (inviteUrl: string) => openExternal(inviteUrl);
+
 /** Hands off to Apple Maps — there is no in-app map screen. Resolves false if Maps can't open. */
 export const openMaps = (query: string) =>
   openExternal(`https://maps.apple.com/?q=${encodeURIComponent(query)}`);
